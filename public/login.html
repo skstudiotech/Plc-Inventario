@@ -6,7 +6,11 @@
     <title>Login - Gestionale PLC</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-slate-900 flex items-center justify-center h-screen m-0">
+<body class="bg-slate-900 flex items-center justify-center h-screen m-0 relative">
+
+    <a href="index.html" class="absolute top-4 left-4 bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-2 rounded-xl text-sm transition shadow-lg shadow-blue-600/30">
+        Back
+    </a>
 
     <div class="bg-slate-800 p-8 rounded-2xl shadow-2xl w-full max-w-sm border border-slate-700">
         <h2 class="text-2xl font-bold text-white text-center mb-6">Accesso Gestionale</h2>
@@ -59,9 +63,6 @@
                 errorDiv.textContent = 'Impossibile connettersi al server';
             }
         });
-        <a href="index.html" class="absolute top-4 left-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg shadow transition-colors duration-200">
-    Torna alla Home
-</a>
     </script>
 </body>
 </html>
