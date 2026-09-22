@@ -51,7 +51,7 @@
                     </div>
                 </div>
 
-                <!-- Dropdown: Lavoratori ( Aggiornato con Area Lavoratori, Webmail e Lavora con noi ) -->
+                <!-- Dropdown: Lavoratori -->
                 <div x-data="{ open: false }" @mouseenter="open = true" @mouseleave="setTimeout(() => { if(!$el.matches(':hover')) open = false }, 300)" class="relative">
                     <button @click="open = !open" class="flex items-center text-sm font-medium hover:text-blue-400 transition focus:outline-none py-2">
                         Lavoratori
@@ -136,7 +136,7 @@
                     </div>
                 </div>
                 
-                <!-- Box Rinnovato e Migliorato con i due pulsanti -->
+                <!-- Box con i pulsanti aggiornati: "Il Nostro Team" e "Lavora con noi" -->
                 <div class="relative">
                     <div class="absolute -inset-1 rounded-3xl bg-gradient-to-r from-blue-600 to-indigo-600 opacity-30 blur-xl"></div>
                     <div class="relative w-full rounded-2xl bg-slate-900 border border-slate-700/80 p-8 shadow-2xl overflow-hidden flex flex-col justify-between">
@@ -162,9 +162,9 @@
                         </div>
 
                         <div class="relative z-10 flex flex-col sm:flex-row gap-3 mb-4">
-                            <a href="https://webmail.skgroupsystem.com" target="_blank" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 px-4 rounded-xl text-xs text-center transition shadow-lg shadow-blue-600/20 flex items-center justify-center">
-                                <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
-                                Accedi Webmail Laboratori
+                            <a href="#storia" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 px-4 rounded-xl text-xs text-center transition shadow-lg shadow-blue-600/20 flex items-center justify-center">
+                                <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                                Il Nostro Team
                             </a>
                             <a href="#contatti" class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold py-2.5 px-4 rounded-xl text-xs text-center border border-slate-700 transition flex items-center justify-center">
                                 <svg class="w-4 h-4 mr-1.5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.25A4.5 4.5 0 0016.5 3h-9A4.5 4.5 0 003 7.5v9A4.5 4.5 0 007.5 21h9a4.5 4.5 0 004.5-4.5v-9zM12 11v6m-3-3h6"></path></svg>
