@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <title>Dashboard Inventario PLC</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+    <style>
+        @media print {
+            body * { visibility: hidden; }
+            #area-scontrino-touch, #area-scontrino-touch * { visibility: visible; }
+            #area-scontrino-touch { position: absolute; left: 0; top: 0; width: 100%; }
+        }
+    </style>
+</head>
+<body class="bg-slate-100 p-6 min-h-screen relative">
+
+    <script>
+        if (!localStorage.getItem('token')) {
+            window.location.href = '/login.html';
+        }
+    </script>
+
+    <!-- TOAST CONTAINER -->
+    <div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col gap-2"></div>
+
+    <div class="max-w-6xl mx-auto space-y-6">
+        
+        <!-- Header -->
+        <div class="flex justify-between items-center bg-white p-5 rounded-2xl shadow-sm border border-gray-200">
+            <div class="flex items-center gap-3">
+                <div class="p-3 bg-blue-100 text-blue-600 rounded-xl text-xl">📦</div>
+                <div>
+                    <h1 class="text-xl font-bold text-slate-800">Dashboard Inventario PLC</h1>
+                    <p class="text-xs text-gray-500">Gestione magazzino in tempo reale</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <div class="flex items-center gap-2 bg-slate-100 p-2 px-3 rounded-xl border">
+                    <div class="w-7 h-7 bg-slate-800 text-white rounded-full flex items-center justify-center text-xs font-bold">👤</div>
+                    <span id="user-display" class="text-xs font-bold text-slate-800"></span>
+                    <span id="role-badge" class="text-[10px] uppercase font-extrabold px-2 py-0.5 rounded text-white"></span>
+                </div>
+                
+                <!-- PULSANTE SCONTRINI (Per Admin, Operatore e Addetto scontrini) -->
+                <button id="btn-scontrini-su" onclick="apriModalListaScontrini()" class="hidden text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 rounded-xl font-bold shadow-sm transition flex items-center gap-1">
+                    🖨️ Scontrini
+                </button>
+
+                <!-- PULSANTE CATEGORIE (Admin e Operatore) -->
+                <button id="btn-cat-modal" onclick="apriModalCategorie()" class="hidden text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-2 rounded-xl font-bold shadow-sm transition flex items-center gap-1">
+                    🏷️ Categorie
+                </button>
+
+                <!-- PULSANTE UTENTI (Solo Admin) -->
+                <button id="btn-admin-modal" onclick="apriModalUtenti()" class="hidden text-xs bg-amber-500 hover:bg-amber-600 text-white px-3.5 py-2 rounded-xl font-bold shadow-sm transition">
+                    👥 Utenti
+                </button>
+                
+                <button onclick="apriModalPass()" class="text-xs bg-slate-200 hover:bg-slate-300 text-slate-700 px-3 py-2 rounded-xl font-semibold transition">
+                    🔑 Password
+                </button>
+                <button onclick="logout()" class="text-xs bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-xl font-semibold transition">
+                    Logout
+                </button>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            <!-- Form Creazione Prodotto -->
+            <div id="box-creazione" class="bg-white p-5 rounded-2xl shadow-sm border space-y-4">
+                <h2 class="text-base font-bold text-slate-800">➕ Crea Prodotto ed Etichetta</h2>
+                <form onsubmit="creaProdotto(event)" class="space-y-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-500 mb-1">Nome Componente</label>
+                        <input id="p-nome" type="text" placeholder="es. Rtx 1080" required class="w-full border p-2 rounded-lg text-xs outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-500 mb-1">Categoria</label>
+                        <select id="p-cat" class="w-full border p-2 rounded-lg text-xs bg-white outline-none focus:ring-2 focus:ring-blue-500 font-semibold"></select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-500 mb-1">Codice a Barre (Opzionale)</label>
+                        <div class="flex gap-2">
+                            <input id="p-codice" type="text" placeholder="Auto-generato se vuoto" class="w-full border p-2 rounded-lg text-xs font-mono outline-none focus:ring-2 focus:ring-blue-500">
+                            <button type="button" onclick="generaCodice()" class="bg-gray-100 hover:bg-gray-200 border px-3 py-1 rounded-lg text-xs font-semibold">Auto</button>
+                        </div>
+                    </div>
+                    <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 rounded-lg text-xs transition">Salva e Genera Etichetta</button>
+                </form>
+
+                <div id="box-etichetta" class="hidden mt-4 p-4 border-2 border-dashed rounded-xl text-center bg-gray-50">
+                    <div id="area-stampa" class="p-2 bg-white border inline-block rounded-lg">
+                        <p id="e-categoria" class="text-[10px] uppercase text-gray-400 font-bold"></p>
+                        <p id="e-nome" class="font-bold text-xs text-slate-800"></p>
+                        <svg id="barcode" class="mx-auto my-1"></svg>
+                    </div>
+                    <button onclick="window.print()" class="mt-3 w-full bg-slate-800 text-white text-xs py-2 rounded-lg font-semibold hover:bg-slate-900">🖨️ Stampa Etichetta</button>
+                </div>
+            </div>
+
+            <!-- Tabella Inventario Magazzino -->
+            <div id="box-inventario" class="lg:col-span-2 bg-white rounded-2xl shadow-sm border overflow-hidden">
+                <div class="p-4 bg-slate-800 text-white font-bold text-sm flex justify-between items-center">
+                    <span>Inventario Magazzino</span>
+                    <span class="text-[10px] font-semibold bg-blue-500 text-white px-2 py-0.5 rounded-full">Socket.io Live</span>
+                </div>
+                <table class="w-full text-left border-collapse">
+                    <thead class="bg-gray-50 border-b text-[11px] text-gray-400 uppercase">
+                        <tr>
+                            <th class="p-3">Codice</th>
+                            <th class="p-3">Nome Articolo</th>
+                            <th class="p-3">Categoria</th>
+                            <th class="p-3 text-center">Quantità</th>
+                            <th id="th-azione-prodotti" class="p-3 text-right">Azione</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabella-prodotti" class="divide-y text-xs"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- SEZIONE TOUCH SCREEN SCONTRINI (Visibile SOLO per Addetto scontrini) -->
+        <div id="box-touch-scontrini" class="hidden bg-white p-6 rounded-2xl shadow-sm border space-y-4">
+            <div class="flex items-center justify-between border-b pb-3">
+                <div>
+                    <h2 class="text-base font-bold text-slate-800">🖨️ Postazione Touch Stampa Scontrini</h2>
+                    <p class="text-xs text-gray-500">Tocca un articolo per generare e stampare immediatamente lo scontrino ufficiale</p>
+                </div>
+            </div>
+            <!-- Griglia di grandi pulsanti touch -->
+            <div id="griglia-scontrini-touch" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                <!-- Generati dinamicamente via JS -->
+            </div>
+        </div>
+
+        <!-- Simulatore PLC -->
+        <div id="box-simulatore" class="p-4 bg-blue-50 border border-blue-200 rounded-2xl">
+            <h3 class="font-bold text-blue-900 text-xs mb-2">Simulatore Lettura Nastro PLC</h3>
+            <div class="flex gap-2">
+                <input id="codice-test" type="text" class="border p-2 rounded-lg text-xs font-mono w-full bg-white outline-none focus:ring-2 focus:ring-blue-500" placeholder="Spara un codice a barre col lettore">
+                <button onclick="simulaScansione()" class="bg-blue-600 text-white text-xs px-4 py-2 rounded-lg font-bold hover:bg-blue-700 transition">Simula PLC</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODALE LISTA SCONTRINI PER ADMIN E OPERATORE -->
+    <div id="modal-lista-scontrini" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-40">
+        <div class="bg-white rounded-2xl p-6 w-full max-w-lg shadow-2xl space-y-4">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 class="font-bold text-slate-800">🖨️ Scontrini Disponibili</h3>
+                <button onclick="chiudiModalListaScontrini()" class="text-gray-400 hover:text-gray-600 font-bold text-lg">✕</button>
+            </div>
+            <p class="text-xs text-slate-500">Seleziona un articolo dalla lista per visualizzare e stampare il relativo scontrino:</p>
+            <div>
+                <label class="block text-xs font-semibold text-gray-600 mb-1">Articolo Magazzino</label>
+                <select id="select-scontrino-top" class="w-full border p-2 rounded-lg text-xs bg-white outline-none font-semibold"></select>
+            </div>
+            <div class="flex justify-end gap-2 pt-2">
+                <button onclick="chiudiModalListaScontrini()" class="bg-gray-200 hover:bg-gray-300 text-slate-700 px-4 py-2 rounded-xl text-xs font-semibold transition">Annulla</button>
+                <button onclick="stampaDaSelectTop()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-bold transition">Apri Anteprima e Stampa</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODALE ANTEPRIMA SCONTRINO GRANDE PER TOUCH -->
+    <div id="modal-anteprima-scontrino" class="hidden fixed inset-0 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-3xl p-8 w-full max-w-md shadow-2xl space-y-6 text-center border">
+            <h3 class="font-bold text-slate-800 text-lg">Anteprima Scontrino Pronto</h3>
+            
+            <div id="area-scontrino-touch" class="p-6 bg-slate-50 border-2 border-dashed rounded-2xl font-mono text-sm space-y-3 text-left">
+                <div class="text-center font-bold border-b pb-3">
+                    <p class="text-base font-extrabold text-slate-900">PLC INVENTARIO SYSTEM</p>
+                    <p class="text-xs text-gray-500">Ricevuta / Scontrino Magazzino</p>
+                </div>
+                <div class="space-y-1.5 py-1 text-xs">
+                    <p><strong>Data/Ora:</strong> <span id="ts-data"></span></p>
+                    <p><strong>Codice a Barre:</strong> <span id="ts-codice"></span></p>
+                    <p><strong>Nome Articolo:</strong> <span id="ts-nome"></span></p>
+                    <p><strong>Categoria:</strong> <span id="ts-cat"></span></p>
+                    <p><strong>Quantità Attuale:</strong> <span id="ts-quantita"></span></p>
+                </div>
+                <div class="text-center border-t pt-3 text-[11px] text-gray-500">
+                    <p>Postazione Ufficiale</p>
+                </div>
+            </div>
+
+            <div class="flex gap-3 pt-2">
+                <button onclick="chiudiAnteprimaScontrino()" class="w-1/2 bg-gray-200 hover:bg-gray-300 text-slate-700 font-bold py-3 rounded-2xl text-sm transition">Indietro</button>
+                <button onclick="window.print()" class="w-1/2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-2xl text-sm shadow-lg shadow-emerald-600/30 transition">🖨️ Stampa Ora</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL CATEGORIE -->
+    <div id="modal-categorie" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-40">
+        <div class="bg-white rounded-2xl p-6 w-full max-w-lg shadow-2xl space-y-4">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 class="font-bold text-slate-800">🏷️ Gestione Categorie</h3>
+                <button onclick="chiudiModalCategorie()" class="text-gray-400 hover:text-gray-600 font-bold text-lg">✕</button>
+            </div>
+            <div class="flex border-b text-xs font-bold gap-2">
+                <button id="tab-cat-crea-btn" onclick="mostraTabCat('crea')" class="pb-2 border-b-2 border-indigo-600 text-indigo-600">➕ Nuova Categoria</button>
+                <button id="tab-cat-gestisci-btn" onclick="mostraTabCat('gestisci')" class="pb-2 border-b-2 border-transparent text-gray-400 hover:text-gray-600">📋 Gestisci Categorie</button>
+            </div>
+            
+            <form id="tab-cat-crea" onsubmit="creaCategoria(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">Nome Categoria</label>
+                    <input id="cat-nome" type="text" placeholder="es. Schede Video, Sensori..." required class="w-full border p-2 rounded-lg text-xs outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">Colore Etichetta</label>
+                    <div class="flex items-center gap-3">
+                        <input id="cat-colore" type="color" value="#3b82f6" class="w-10 h-10 rounded-lg cursor-pointer border p-0.5">
+                        <span class="text-xs text-gray-500">Scegli un colore</span>
+                    </div>
+                </div>
+                <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs py-2.5 rounded-lg font-bold transition">Aggiungi Categoria</button>
+            </form>
+
+            <div id="tab-cat-gestisci" class="hidden space-y-3 max-h-60 overflow-y-auto">
+                <table class="w-full text-left text-xs">
+                    <thead class="bg-gray-100 uppercase text-[10px] text-gray-500">
+                        <tr>
+                            <th class="p-2">Colore</th>
+                            <th class="p-2">Nome</th>
+                            <th class="p-2 text-right">Azione</th>
+                        </tr>
+                    </thead>
+                    <tbody id="lista-categorie-body" class="divide-y"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL UTENTI -->
+    <div id="modal-admin" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-40">
+        <div class="bg-white rounded-2xl p-6 w-full max-w-lg shadow-2xl space-y-4">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 class="font-bold text-slate-800">👥 Gestione Account Utenti</h3>
+                <button onclick="chiudiModalUtenti()" class="text-gray-400 hover:text-gray-600 font-bold text-lg">✕</button>
+            </div>
+            <div class="flex border-b text-xs font-bold gap-2">
+                <button id="tab-btn-crea" onclick="mostraTab('crea')" class="pb-2 border-b-2 border-amber-500 text-amber-600">➕ Crea Account</button>
+                <button id="tab-btn-gestisci" onclick="mostraTab('gestisci')" class="pb-2 border-b-2 border-transparent text-gray-400 hover:text-gray-600">📋 Gestisci Utenti</button>
+            </div>
+            
+            <form id="tab-crea" onsubmit="creaUtente(event)" class="space-y-3">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">Username Nuovo Utente</label>
+                    <input id="adm-user" type="text" placeholder="es. Mario" required class="w-full border p-2 rounded-lg text-xs outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">Password Accesso</label>
+                    <input id="adm-pass" type="password" placeholder="Password" required class="w-full border p-2 rounded-lg text-xs outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">Ruolo</label>
+                    <select id="adm-role" class="w-full border p-2 rounded-lg text-xs bg-white outline-none">
+                        <option value="Operatore">Operatore</option>
+                        <option value="Visualizzatore">Visualizzatore</option>
+                        <option value="Addetto scontrini">Addetto scontrini</option>
+                        <option value="Admin">Admin</option>
+                    </select>
+                </div>
+                <button type="submit" class="w-full bg-amber-500 hover:bg-amber-600 text-white text-xs py-2.5 rounded-lg font-bold transition">Crea Account</button>
+            </form>
+
+            <div id="tab-gestisci" class="hidden space-y-3 max-h-60 overflow-y-auto">
+                <table class="w-full text-left text-xs">
+                    <thead class="bg-gray-100 uppercase text-[10px] text-gray-500">
+                        <tr>
+                            <th class="p-2">User</th>
+                            <th class="p-2">Ruolo</th>
+                            <th class="p-2 text-right">Azione</th>
+                        </tr>
+                    </thead>
+                    <tbody id="lista-utenti-body" class="divide-y"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL CAMBIO PASSWORD PERSONALE -->
+    <div id="modal-pass" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-40">
+        <div class="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl space-y-4">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 class="font-bold text-slate-800 text-sm">🔑 Modifica Password</h3>
+                <button onclick="chiudiModalPass()" class="text-gray-400 hover:text-gray-600 font-bold text-lg">✕</button>
+            </div>
+            <form onsubmit="eseguiCambioPassword(event)" class="space-y-3">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">Nuova Password</label>
+                    <input id="input-nuova-pass" type="password" placeholder="••••••••" required class="w-full border p-2 rounded-lg text-xs outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs py-2.5 rounded-lg font-bold transition">Aggiorna Password</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL ADMIN CAMBIO PASSWORD UTENTE -->
+    <div id="modal-admin-pass-utente" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl space-y-4">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 class="font-bold text-slate-800 text-sm">🔑 Cambia Password a <span id="admin-target-user" class="text-amber-600"></span></h3>
+                <button onclick="chiudiModalAdminPassUtente()" class="text-gray-400 hover:text-gray-600 font-bold text-lg">✕</button>
+            </div>
+            <form onsubmit="eseguiAdminCambioPasswordUtente(event)" class="space-y-3">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">Nuova Password</label>
+                    <input id="input-admin-nuova-pass" type="password" placeholder="••••••••" required class="w-full border p-2 rounded-lg text-xs outline-none focus:ring-2 focus:ring-amber-500">
+                </div>
+                <button type="submit" class="w-full bg-amber-500 hover:bg-amber-600 text-white text-xs py-2.5 rounded-lg font-bold transition">Imposta Nuova Password</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODALE CONFERMA ELIMINAZIONE PRODOTTO CON PASSWORD -->
+    <div id="modal-elimina" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl space-y-4 border border-red-100">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 class="font-bold text-red-600 text-sm flex items-center gap-2">⚠️ Conferma Eliminazione</h3>
+                <button onclick="chiudiModalElimina()" class="text-gray-400 hover:text-gray-600 font-bold text-lg">✕</button>
+            </div>
+            <p class="text-xs text-slate-600">
+                Stai per eliminare il prodotto: <strong id="nome-prodotto-elimina" class="text-slate-800"></strong>.
+            </p>
+            <form onsubmit="confermaEliminazioneProdotto(event)" class="space-y-3">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">
+                        Inserisci la tua password (<span id="user-elimina-display" class="font-bold text-slate-800"></span>) per confermare:
+                    </label>
+                    <input id="input-pass-elimina" type="password" placeholder="••••••••" required class="w-full border p-2 rounded-lg text-xs outline-none focus:ring-2 focus:ring-red-500">
+                </div>
+                <div class="flex gap-2 pt-2">
+                    <button type="button" onclick="chiudiModalElimina()" class="w-1/2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs py-2 rounded-lg font-semibold transition">Annulla</button>
+                    <button type="submit" class="w-1/2 bg-red-600 hover:bg-red-700 text-white text-xs py-2 rounded-lg font-bold transition">Elimina</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const username = localStorage.getItem('username') || 'Utente';
+        const ruoloRaw = localStorage.getItem('ruolo') || 'Operatore';
+        const ruolo = ruoloRaw.charAt(0).toUpperCase() + ruoloRaw.slice(1).toLowerCase();
+        
+        let listaCategorie = [];
+        let listaProdottiGlobal = [];
+        let prodottoDaEliminareId = null;
+        let utenteSelezionatoPassId = null;
+
+        document.getElementById('user-display').textContent = username;
+        document.getElementById('user-elimina-display').textContent = username;
+        
+        const badgeElem = document.getElementById('role-badge');
+        badgeElem.textContent = ruolo;
+
+        if (ruolo === 'Visualizzatore') {
+            document.getElementById('box-creazione').classList.add('hidden');
+            document.getElementById('box-simulatore').classList.add('hidden');
+            document.getElementById('box-inventario').classList.remove('lg:col-span-2');
+            document.getElementById('box-inventario').classList.add('lg:col-span-3');
+            document.getElementById('btn-admin-modal').classList.add('hidden');
+            document.getElementById('btn-cat-modal').classList.add('hidden');
+            document.getElementById('btn-scontrini-su').classList.add('hidden'); // Visualizzatore non ha il tasto scontrini in alto
+            document.getElementById('th-azione-prodotti').classList.add('hidden');
+            badgeElem.classList.add('bg-slate-500');
+        } else if (ruolo === 'Addetto scontrini') {
+            // L'Addetto scontrini mantiene la sua postazione touch dedicata in basso e non ha bisogno del pulsante in alto
+            document.getElementById('box-creazione').classList.add('hidden');
+            document.getElementById('box-simulatore').classList.add('hidden');
+            document.getElementById('box-inventario').classList.remove('lg:col-span-2');
+            document.getElementById('box-inventario').classList.add('lg:col-span-3');
+            document.getElementById('btn-admin-modal').classList.add('hidden');
+            document.getElementById('btn-cat-modal').classList.add('hidden');
+            document.getElementById('btn-scontrini-su').classList.add('hidden');
+            document.getElementById('box-touch-scontrini').classList.remove('hidden'); 
+            document.getElementById('th-azione-prodotti').classList.add('hidden');
+            badgeElem.classList.add('bg-emerald-600');
+        } else if (ruolo === 'Operatore') {
+            document.getElementById('box-creazione').classList.remove('hidden');
+            document.getElementById('box-simulatore').classList.remove('hidden');
+            document.getElementById('btn-cat-modal').classList.remove('hidden');
+            document.getElementById('btn-admin-modal').classList.add('hidden');
+            document.getElementById('btn-scontrini-su').classList.remove('hidden'); // Operatore vede il pulsante scontrini in alto
+            document.getElementById('th-azione-prodotti').classList.add('hidden');
+            badgeElem.classList.add('bg-blue-600');
+        } else if (ruolo === 'Admin') {
+            document.getElementById('box-creazione').classList.remove('hidden');
+            document.getElementById('box-simulatore').classList.remove('hidden');
+            badgeElem.classList.add('bg-amber-500');
+            document.getElementById('btn-admin-modal').classList.remove('hidden');
+            document.getElementById('btn-cat-modal').classList.remove('hidden');
+            document.getElementById('btn-scontrini-su').classList.remove('hidden'); // Admin vede il pulsante scontrini in alto
+        }
+
+        const socket = io();
+
+        function mostraNotifica(messaggio, tipo = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            const colorClass = tipo === 'success' ? 'bg-slate-800 text-white border-green-500' : 'bg-red-600 text-white border-red-700';
+            toast.className = `p-3 px-4 rounded-xl shadow-xl text-xs font-semibold border-l-4 transition-all duration-300 transform translate-y-2 opacity-0 ${colorClass}`;
+            toast.textContent = messaggio;
+            container.appendChild(toast);
+            requestAnimationFrame(() => toast.classList.remove('translate-y-2', 'opacity-0'));
+            setTimeout(() => {
+                toast.classList.add('opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        function logout() {
+            localStorage.clear();
+            window.location.href = '/login.html';
+        }
+
+        function apriModalListaScontrini() {
+            document.getElementById('modal-lista-scontrini').classList.remove('hidden');
+            popolaSelectScontriniTop();
+        }
+        function chiudiModalListaScontrini() {
+            document.getElementById('modal-lista-scontrini').classList.add('hidden');
+        }
+
+        function popolaSelectScontriniTop() {
+            const sel = document.getElementById('select-scontrino-top');
+            if(!sel) return;
+            sel.innerHTML = '';
+            if (listaProdottiGlobal.length === 0) {
+                sel.innerHTML = `<option value="">Nessun articolo disponibile</option>`;
+                return;
+            }
+            listaProdottiGlobal.forEach(p => {
+                sel.innerHTML += `<option value="${p.id}">${p.nome} (Cod: ${p.codice_barre} - Q.tà: ${p.quantita})</option>`;
+            });
+        }
+
+        function stampaDaSelectTop() {
+            const selId = document.getElementById('select-scontrino-top').value;
+            if(!selId) return;
+            chiudiModalListaScontrini();
+            apriAnteprimaScontrino(selId);
+        }
+
+        function apriModalCategorie() { 
+            if (ruolo === 'Visualizzatore' || ruolo === 'Addetto scontrini') return;
+            document.getElementById('modal-categorie').classList.remove('hidden'); 
+            mostraTabCat('crea'); 
+        }
+        function chiudiModalCategorie() { document.getElementById('modal-categorie').classList.add('hidden'); }
+        
+        function apriModalUtenti() { 
+            if (ruolo !== 'Admin') return;
+            document.getElementById('modal-admin').classList.remove('hidden'); 
+            mostraTab('crea'); 
+        }
+        function chiudiModalUtenti() { document.getElementById('modal-admin').classList.add('hidden'); }
+        
+        function apriModalPass() { document.getElementById('input-nuova-pass').value = ''; document.getElementById('modal-pass').classList.remove('hidden'); }
+        function chiudiModalPass() { document.getElementById('modal-pass').classList.add('hidden'); }
+        
+        function apriModalAdminPassUtente(id, nome) {
+            utenteSelezionatoPassId = id;
+            document.getElementById('admin-target-user').textContent = nome;
+            document.getElementById('input-admin-nuova-pass').value = '';
+            document.getElementById('modal-admin-pass-utente').classList.remove('hidden');
+        }
+        function chiudiModalAdminPassUtente() {
+            utenteSelezionatoPassId = null;
+            document.getElementById('modal-admin-pass-utente').classList.add('hidden');
+        }
+
+        function apriModalElimina(id, nome) {
+            if (ruolo !== 'Admin') return;
+            prodottoDaEliminareId = id;
+            document.getElementById('nome-prodotto-elimina').textContent = nome;
+            document.getElementById('input-pass-elimina').value = '';
+            document.getElementById('modal-elimina').classList.remove('hidden');
+        }
+        function chiudiModalElimina() { prodottoDaEliminareId = null; document.getElementById('modal-elimina').classList.add('hidden'); }
+
+        function mostraTabCat(tab) {
+            if (tab === 'crea') {
+                document.getElementById('tab-cat-crea').classList.remove('hidden');
+                document.getElementById('tab-cat-gestisci').classList.add('hidden');
+                document.getElementById('tab-cat-crea-btn').className = "pb-2 border-b-2 border-indigo-600 text-indigo-600";
+                document.getElementById('tab-cat-gestisci-btn').className = "pb-2 border-b-2 border-transparent text-gray-400 hover:text-gray-600";
+            } else {
+                document.getElementById('tab-cat-crea').classList.add('hidden');
+                document.getElementById('tab-cat-gestisci').classList.remove('hidden');
+                document.getElementById('tab-cat-crea-btn').className = "pb-2 border-b-2 border-transparent text-gray-400 hover:text-gray-600";
+                document.getElementById('tab-cat-gestisci-btn').className = "pb-2 border-b-2 border-indigo-600 text-indigo-600";
+                renderizzaListaCategorie();
+            }
+        }
+
+        function mostraTab(tab) {
+            if (tab === 'crea') {
+                document.getElementById('tab-crea').classList.remove('hidden');
+                document.getElementById('tab-gestisci').classList.add('hidden');
+                document.getElementById('tab-btn-crea').className = "pb-2 border-b-2 border-amber-500 text-amber-600";
+                document.getElementById('tab-btn-gestisci').className = "pb-2 border-b-2 border-transparent text-gray-400 hover:text-gray-600";
+            } else {
+                document.getElementById('tab-crea').classList.add('hidden');
+                document.getElementById('tab-gestisci').classList.remove('hidden');
+                document.getElementById('tab-btn-crea').className = "pb-2 border-b-2 border-transparent text-gray-400 hover:text-gray-600";
+                document.getElementById('tab-btn-gestisci').className = "pb-2 border-b-2 border-amber-500 text-amber-600";
+                caricaUtenti();
+            }
+        }
+
+        async function caricaCategorie() {
+            const res = await fetch('/api/categorie', { headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') } });
+            if (res.status === 401 || res.status === 403) logout();
+            listaCategorie = await res.json();
+            const select = document.getElementById('p-cat');
+            if (select) {
+                select.innerHTML = '';
+                listaCategorie.forEach(c => select.innerHTML += `<option value="${c.nome}">${c.nome}</option>`);
+            }
+            renderizzaListaCategorie();
+            caricaProdotti();
+        }
+
+        function renderizzaListaCategorie() {
+            const tbody = document.getElementById('lista-categorie-body');
+            if(!tbody) return;
+            tbody.innerHTML = '';
+            listaCategorie.forEach(c => {
+                let btnCatDel = (ruolo === 'Admin' || ruolo === 'Operatore') ? `<button onclick="eliminaCategoria(${c.id})" class="bg-red-100 text-red-600 hover:bg-red-200 px-2.5 py-1 rounded font-bold text-[10px]">Elimina</button>` : '';
+                tbody.innerHTML += `
+                    <tr class="border-b hover:bg-gray-50">
+                        <td class="p-2"><span class="w-4 h-4 rounded-full inline-block align-middle border" style="background-color: ${c.colore};"></span></td>
+                        <td class="p-2 font-bold text-slate-700">${c.nome}</td>
+                        <td class="p-2 text-right">${btnCatDel}</td>
+                    </tr>
+                `;
+            });
+        }
+
+        async function creaCategoria(e) {
+            e.preventDefault();
+            if (ruolo === 'Visualizzatore' || ruolo === 'Addetto scontrini') return;
+            const nome = document.getElementById('cat-nome').value;
+            const colore = document.getElementById('cat-colore').value;
+            const res = await fetch('/api/categorie', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('token') },
+                body: JSON.stringify({ nome, colore })
+            });
+            if (res.ok) { document.getElementById('cat-nome').value = ''; mostraNotifica('Categoria creata!'); chiudiModalCategorie(); caricaCategorie(); }
+        }
+
+        async function eliminaCategoria(id) {
+            if (ruolo !== 'Admin' && ruolo !== 'Operatore') return;
+            await fetch(`/api/categorie/${id}`, { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') } });
+            mostraNotifica('Categoria eliminata!');
+            caricaCategorie();
+        }
+
+        async function caricaProdotti() {
+            const res = await fetch('/api/prodotti', { headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') } });
+            if (res.status === 401 || res.status === 403) logout();
+            listaProdottiGlobal = await res.json();
+            const tbody = document.getElementById('tabella-prodotti');
+            tbody.innerHTML = '';
+            if (listaProdottiGlobal.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-gray-400">Nessun prodotto presente</td></tr>`;
+            } else {
+                listaProdottiGlobal.forEach(p => {
+                    const objCat = listaCategorie.find(c => c.nome.toLowerCase() === (p.categoria || '').toLowerCase());
+                    const coloreBg = objCat ? objCat.colore : '#64748b';
+                    
+                    let btnEliminaHtml = '';
+                    if (ruolo === 'Admin') {
+                        btnEliminaHtml = `<td class="p-3 text-right"><button onclick="apriModalElimina(${p.id}, '${p.nome.replace(/'/g, "\\'")}')" class="bg-red-100 text-red-600 hover:bg-red-200 px-2.5 py-1 rounded-lg font-bold text-[11px]">🗑️ Elimina</button></td>`;
+                    }
+
+                    tbody.innerHTML += `
+                        <tr class="hover:bg-gray-50 border-b">
+                            <td class="p-3 font-mono font-semibold text-gray-600">${p.codice_barre}</td>
+                            <td class="p-3 font-semibold text-slate-800">${p.nome}</td>
+                            <td class="p-3"><span class="text-white px-2 py-0.5 rounded text-[10px] font-bold shadow-sm" style="background-color: ${coloreBg}">${p.categoria || 'Generico'}</span></td>
+                            <td class="p-3 text-center"><span class="bg-blue-100 text-blue-800 px-2.5 py-1 rounded-full font-bold text-xs">${p.quantita}</span></td>
+                            ${btnEliminaHtml}
+                        </tr>
+                    `;
+                });
+            }
+
+            if (ruolo === 'Addetto scontrini') {
+                renderizzaGrigliaTouchScontrini();
+            }
+        }
+
+        function renderizzaGrigliaTouchScontrini() {
+            const grid = document.getElementById('griglia-scontrini-touch');
+            if (!grid) return;
+            grid.innerHTML = '';
+            if (listaProdottiGlobal.length === 0) {
+                grid.innerHTML = `<p class="text-xs text-gray-400 col-span-3 text-center py-4">Nessun articolo disponibile per la stampa</p>`;
+                return;
+            }
+            listaProdottiGlobal.forEach(p => {
+                grid.innerHTML += `
+                    <button onclick="apriAnteprimaScontrino(${p.id})" class="p-4 bg-emerald-50 hover:bg-emerald-100 border-2 border-emerald-500/30 hover:border-emerald-600 rounded-2xl text-left transition flex flex-col justify-between shadow-sm active:scale-95">
+                        <div>
+                            <span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-emerald-600 text-white">${p.categoria || 'Generico'}</span>
+                            <h4 class="font-bold text-slate-800 text-sm mt-2">${p.nome}</h4>
+                            <p class="text-xs font-mono text-gray-500 mt-1">Cod: ${p.codice_barre}</p>
+                        </div>
+                        <div class="mt-4 flex justify-between items-center border-t border-emerald-200 pt-2">
+                            <span class="text-xs font-bold text-slate-700">Stock: ${p.quantita}</span>
+                            <span class="bg-emerald-600 text-white text-xs px-3 py-1.5 rounded-xl font-bold">🖨️ Stampa Scontrino</span>
+                        </div>
+                    </button>
+                `;
+            });
+        }
+
+        function apriAnteprimaScontrino(id) {
+            const prod = listaProdottiGlobal.find(p => p.id == id);
+            if (!prod) return;
+            document.getElementById('ts-data').textContent = new Date().toLocaleString();
+            document.getElementById('ts-codice').textContent = prod.codice_barre;
+            document.getElementById('ts-nome').textContent = prod.nome;
+            document.getElementById('ts-cat').textContent = prod.categoria || 'Generico';
+            document.getElementById('ts-quantita').textContent = prod.quantita;
+            document.getElementById('modal-anteprima-scontrino').classList.remove('hidden');
+        }
+
+        function chiudiAnteprimaScontrino() {
+            document.getElementById('modal-anteprima-scontrino').classList.add('hidden');
+        }
+
+        async function confermaEliminazioneProdotto(e) {
+            e.preventDefault();
+            if (ruolo !== 'Admin' || !prodottoDaEliminareId) return;
+            const password = document.getElementById('input-pass-elimina').value;
+            const res = await fetch(`/api/prodotti/${prodottoDaEliminareId}`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('token') },
+                body: JSON.stringify({ password })
+            });
+            const data = await res.json();
+            if (res.ok) { chiudiModalElimina(); mostraNotifica('Prodotto eliminato!'); }
+            else { mostraNotifica(data.error || 'Password errata', 'error'); }
+        }
+
+        function generaCodice() { document.getElementById('p-codice').value = Math.floor(10000000 + Math.random() * 90000000); }
+
+        async function creaProdotto(e) {
+            e.preventDefault();
+            if (ruolo === 'Visualizzatore' || ruolo === 'Addetto scontrini') return;
+            const nome = document.getElementById('p-nome').value;
+            const categoria = document.getElementById('p-cat').value;
+            const codice_barre = document.getElementById('p-codice').value;
+            const res = await fetch('/api/prodotti', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('token') },
+                body: JSON.stringify({ codice_barre, nome, categoria })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                document.getElementById('e-nome').textContent = nome;
+                document.getElementById('e-categoria').textContent = categoria;
+                JsBarcode("#barcode", data.codice_generato, { format: "CODE128", width: 2, height: 40, displayValue: true });
+                document.getElementById('box-etichetta').classList.remove('hidden');
+                document.getElementById('p-nome').value = '';
+                document.getElementById('p-codice').value = '';
+                mostraNotifica('Prodotto salvato!');
+            } else {
+                mostraNotifica(data.error || 'Errore salvataggio', 'error');
+            }
+        }
+
+        async function eseguiCambioPassword(e) {
+            e.preventDefault();
+            const nuovaPassword = document.getElementById('input-nuova-pass').value;
+            const res = await fetch('/api/cambia-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('token') },
+                body: JSON.stringify({ nuovaPassword })
+            });
+            if (res.ok) { chiudiModalPass(); mostraNotifica('Password aggiornata!'); }
+        }
+
+        async function eseguiAdminCambioPasswordUtente(e) {
+            e.preventDefault();
+            if (ruolo !== 'Admin' || !utenteSelezionatoPassId) return;
+            const nuovaPassword = document.getElementById('input-admin-nuova-pass').value;
+            const res = await fetch('/api/admin/cambia-password-utente', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('token') },
+                body: JSON.stringify({ id: utenteSelezionatoPassId, nuovaPassword })
+            });
+            if (res.ok) {
+                chiudiModalAdminPassUtente();
+                mostraNotifica('Password utente aggiornata con successo!');
+            } else {
+                const data = await res.json();
+                mostraNotifica(data.error || 'Errore aggiornamento password', 'error');
+            }
+        }
+
+        async function creaUtente(e) {
+            e.preventDefault();
+            if (ruolo !== 'Admin') return;
+            const newUsername = document.getElementById('adm-user').value;
+            const newPassword = document.getElementById('adm-pass').value;
+            const ruoloNuovo = document.getElementById('adm-role').value;
+            const res = await fetch('/api/admin/crea-utente', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('token') },
+                body: JSON.stringify({ newUsername, newPassword, ruolo: ruoloNuovo })
+            });
+            if (res.ok) { 
+                mostraNotifica('Account creato!'); 
+                document.getElementById('adm-user').value = '';
+                document.getElementById('adm-pass').value = '';
+                chiudiModalUtenti(); 
+            } else {
+                const data = await res.json();
+                mostraNotifica(data.error || 'Errore creazione', 'error');
+            }
+        }
+
+        async function caricaUtenti() {
+            if (ruolo !== 'Admin') return;
+            try {
+                const res = await fetch('/api/admin/utenti', { headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') } });
+                const utenti = await res.json();
+                const tbody = document.getElementById('lista-utenti-body');
+                if (!tbody) return;
+                tbody.innerHTML = '';
+                
+                utenti.forEach(u => {
+                    let selectRuolo = '';
+                    let azionariato = '';
+
+                    const uRuoloRaw = u.ruolo || 'Operatore';
+                    const uRuolo = uRuoloRaw.charAt(0).toUpperCase() + uRuoloRaw.slice(1).toLowerCase();
+
+                    if (u.username.toLowerCase() === 'admin') {
+                        selectRuolo = `<span class="text-xs font-bold text-slate-700">Admin (Protetto)</span>`;
+                        azionariato = `<span class="text-gray-400 text-[10px]">Protezione</span>`;
+                    } else {
+                        selectRuolo = `
+                            <select onchange="cambiaRuoloUtente(${u.id}, this.value)" class="border p-1 rounded text-xs bg-white font-semibold text-slate-700 outline-none">
+                                <option value="Visualizzatore" ${uRuolo === 'Visualizzatore' ? 'selected' : ''}>Visualizzatore</option>
+                                <option value="Operatore" ${uRuolo === 'Operatore' ? 'selected' : ''}>Operatore</option>
+                                <option value="Addetto scontrini" ${uRuolo === 'Addetto scontrini' ? 'selected' : ''}>Addetto scontrini</option>
+                                <option value="Admin" ${uRuolo === 'Admin' ? 'selected' : ''}>Admin</option>
+                            </select>
+                        `;
+                        azionariato = `
+                            <div class="flex gap-1 justify-end">
+                                <button onclick="apriModalAdminPassUtente(${u.id}, '${u.username}')" class="bg-blue-100 text-blue-600 hover:bg-blue-200 px-2 py-1 rounded text-[10px] font-bold">Password</button>
+                                <button onclick="eliminaUtente(${u.id})" class="bg-red-100 text-red-600 hover:bg-red-200 px-2 py-1 rounded text-[10px] font-bold">Elimina</button>
+                            </div>
+                        `;
+                    }
+
+                    tbody.innerHTML += `
+                        <tr class="border-b hover:bg-gray-50">
+                            <td class="p-2 font-bold text-slate-800">${u.username}</td>
+                            <td class="p-2">${selectRuolo}</td>
+                            <td class="p-2 text-right">${azionariato}</td>
+                        </tr>
+                    `;
+                });
+            } catch (err) {
+                console.error("Errore caricamento utenti:", err);
+            }
+        }
+
+        async function cambiaRuoloUtente(id, nuovoRuolo) {
+            if (ruolo !== 'Admin') return;
+            const res = await fetch('/api/admin/cambia-ruolo', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('token') },
+                body: JSON.stringify({ id, nuovoRuolo })
+            });
+            if (res.ok) {
+                mostraNotifica('Ruolo aggiornato');
+            } else {
+                const data = await res.json();
+                mostraNotifica(data.error || 'Errore', 'error');
+                caricaUtenti();
+            }
+        }
+
+        async function eliminaUtente(id) {
+            if (ruolo !== 'Admin') return;
+            await fetch(`/api/admin/elimina-utente/${id}`, { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') } });
+            mostraNotifica('Utente eliminato');
+            caricaUtenti();
+        }
+
+        async function simulaScansione() {
+            if (ruolo === 'Visualizzatore' || ruolo === 'Addetto scontrini') return;
+            const codice = document.getElementById('codice-test').value;
+            if(!codice) return;
+            const res = await fetch('/api/plc/scansione', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('token') },
+                body: JSON.stringify({ codice_barre: codice })
+            });
+            const data = await res.json();
+            if (res.ok) { document.getElementById('codice-test').value = ''; mostraNotifica(data.status); }
+            else { mostraNotifica(data.error, 'error'); }
+        }
+
+        socket.on('inventario_aggiornato', caricaProdotti);
+        socket.on('categorie_aggiornate', caricaCategorie);
+        caricaCategorie();
+    </script>
+</body>
+</html>
