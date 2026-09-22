@@ -1,45 +1,190 @@
 <!DOCTYPE html>
-<html lang="it">
+<html lang="it" class="scroll-smooth">
 <head>
     <meta charset="UTF-8">
-    <title>Benvenuto - Gestione Inventario PLC</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SK Group System - Hardware, PC Custom & Automazione PLC</title>
     <script src="https://cdn.tailwindcss.com"></script>
-</head><body class="bg-slate-900 text-white min-h-screen flex flex-col justify-between selection:bg-blue-500 selection:text-white">
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans antialiased selection:bg-blue-600 selection:text-white">
 
-    <!-- Header / Nav -->
-    <header class="max-w-6xl mx-auto w-full p-6 flex justify-between items-center">
-        <div class="flex items-center gap-3">
-            <div class="p-2.5 bg-blue-600 rounded-xl text-xl font-bold">⚡</div>
-            <span class="text-lg font-extrabold tracking-tight">PLC Inventario System</span>
-        </div>
-        <div>
-            <a href="/login.html" class="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-5 py-2.5 rounded-xl transition shadow-lg shadow-blue-600/30">
-                Accedi ➔
-            </a>
+    <!-- Header / Navbar -->
+    <header class="fixed top-0 left-0 right-0 z-50 bg-slate-900/80 backdrop-blur-md border-b border-slate-800">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+            
+            <!-- Logo / Spazio per Futuro Loghetto -->
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-600/30 text-white font-black text-xl">
+                    SK
+                </div>
+                <span class="text-lg font-bold tracking-wider text-white">SK GROUP SYSTEM</span>
+            </div>
+
+            <!-- Navigation Links -->
+            <nav class="hidden md:flex items-center space-x-8">
+                <a href="#home" class="text-sm font-medium hover:text-blue-400 transition">Home</a>
+
+                <!-- Dropdown: Chi Siamo -->
+                <div x-data="{ open: false }" @mouseleave="open = false" class="relative">
+                    <button @mouseover="open = true" @click="open = !open" class="flex items-center text-sm font-medium hover:text-blue-400 transition focus:outline-none py-2">
+                        Chi Siamo
+                        <svg class="w-4 h-4 ml-1 transform transition-transform duration-200" :class="open ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                    </button>
+                    <div x-show="open" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-1" x-transition:enter-end="opacity-100 translate-y-0" class="absolute left-0 mt-1 w-56 bg-slate-900 border border-slate-800 rounded-xl shadow-2xl py-2 z-50">
+                        <a href="#storia" @click="open = false" class="block px-4 py-2.5 text-sm text-slate-300 hover:bg-blue-600 hover:text-white transition">La Nostra Storia</a>
+                        <a href="#mission" @click="open = false" class="block px-4 py-2.5 text-sm text-slate-300 hover:bg-blue-600 hover:text-white transition">Mission & Valori</a>
+                        <a href="#team" @click="open = false" class="block px-4 py-2.5 text-sm text-slate-300 hover:bg-blue-600 hover:text-white transition">Il Nostro Team</a>
+                    </div>
+                </div>
+
+                <!-- Dropdown: Cosa Facciamo -->
+                <div x-data="{ open: false }" @mouseleave="open = false" class="relative">
+                    <button @mouseover="open = true" @click="open = !open" class="flex items-center text-sm font-medium hover:text-blue-400 transition focus:outline-none py-2">
+                        Cosa Facciamo
+                        <svg class="w-4 h-4 ml-1 transform transition-transform duration-200" :class="open ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                    </button>
+                    <div x-show="open" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-1" x-transition:enter-end="opacity-100 translate-y-0" class="absolute left-0 mt-1 w-64 bg-slate-900 border border-slate-800 rounded-xl shadow-2xl py-2 z-50">
+                        <a href="#prodotti" @click="open = false" class="block px-4 py-2.5 text-sm text-slate-300 hover:bg-blue-600 hover:text-white transition">Componenti & Schede PC</a>
+                        <a href="#prodotti" @click="open = false" class="block px-4 py-2.5 text-sm text-slate-300 hover:bg-blue-600 hover:text-white transition">Assemblaggio Computer Custom</a>
+                        <a href="#prodotti" @click="open = false" class="block px-4 py-2.5 text-sm text-slate-300 hover:bg-blue-600 hover:text-white transition">Sistemi & Componenti PLC</a>
+                    </div>
+                </div>
+
+                <a href="#contatti" class="text-sm font-medium hover:text-blue-400 transition">Contatti</a>
+            </nav>
+
+            <!-- Spazio vuoto a destra riservato al futuro logo/branding o pannello -->
+            <div class="w-10"></div>
         </div>
     </header>
 
     <!-- Hero Section -->
-    <main class="max-w-4xl mx-auto text-center px-6 py-16 space-y-6">
-        <div class="inline-block bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">
-            Portale Aziendale Riservato
+    <section id="home" class="relative pt-32 pb-20 md:pt-44 md:pb-32 overflow-hidden bg-gradient-to-b from-slate-900 to-slate-950">
+        <div class="absolute inset-0 opacity-20 bg-[radial-gradient(#3b82f6_1px,transparent_1px)] [background-size:16px_16px]"></div>
+        
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center">
+            
+            <div class="inline-flex items-center px-4 py-1.5 rounded-full border border-blue-500/30 bg-blue-500/10 text-blue-400 text-xs font-semibold tracking-wide uppercase mb-6">
+                <span class="w-2 h-2 rounded-full bg-blue-500 mr-2.5 inline-block"></span>
+                Eccellenza in Hardware e Automazione
+            </div>
+
+            <h1 class="text-4xl sm:text-6xl font-black tracking-tight text-white max-w-4xl mx-auto leading-tight mb-6">
+                Soluzioni Hardware Avanzate e <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-indigo-400">Componenti PLC</span>
+            </h1>
+
+            <p class="text-lg sm:text-xl text-slate-400 max-w-2xl mx-auto mb-10">
+                Progettiamo e costruiamo computer ad alte prestazioni, schede elettroniche e sistemi di automazione industriale per supportare tecnici e professionisti.
+            </p>
+
+            <div class="flex flex-col sm:flex-row justify-center items-center space-y-4 sm:space-y-0 sm:space-x-4">
+                <a href="#prodotti" class="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold px-8 py-4 rounded-xl shadow-lg shadow-blue-600/30 transition transform hover:-translate-y-0.5">
+                    Esplora i Prodotti
+                </a>
+                <a href="#storia" class="w-full sm:w-auto bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold px-8 py-4 rounded-xl border border-slate-700 transition">
+                    La Nostra Storia
+                </a>
+            </div>
         </div>
-        <h1 class="text-4xl md:text-6xl font-extrabold tracking-tight leading-tight">
-            Controllo Intelligente del Magazzino e <span class="text-blue-500">Componenti PLC</span>
-        </h1>
-        <p class="text-slate-400 text-sm md:text-base max-w-2xl mx-auto leading-relaxed">
-            Sistema integrato per la tracciabilità in tempo reale dei componenti elettronici, automazione dei flussi su nastro e gestione avanzata degli stock aziendali.
-        </p>
-        <div class="pt-4 flex justify-center gap-4">
-            <a href="/login.html" class="bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm px-6 py-3 rounded-xl transition shadow-lg shadow-blue-600/30">
-                Area Riservata Addetti
-            </a>
+    </section>
+
+    <!-- La Nostra Storia / Chi Siamo -->
+    <section id="storia" class="py-20 bg-slate-900/50 border-t border-slate-800">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+                <div>
+                    <h2 class="text-3xl font-bold text-white mb-6">Chi Siamo & La Nostra Storia</h2>
+                    <p class="text-slate-300 leading-relaxed mb-4">
+                        SK Group System non è un'azienda nata da poco: vantiamo una solida esperienza nella costruzione di computer ad alte prestazioni, sviluppo di schede elettroniche e fornitura di prodotti elettronici di prima qualità.
+                    </p>
+                    <p class="text-slate-300 leading-relaxed mb-6">
+                        Il nostro obiettivo principale è sempre stato quello di affiancare e aiutare tecnici, sviluppatori e aziende offrendo componentistica hardware affidabile, consulenze specializzate e soluzioni di automazione industriale e PLC su misura.
+                    </p>
+                    <div class="grid grid-cols-2 gap-6 pt-4 border-t border-slate-800">
+                        <div>
+                            <div class="text-3xl font-black text-blue-500 mb-1">+10 Anni</div>
+                            <div class="text-sm text-slate-400">Di Esperienza nel Settore</div>
+                        </div>
+                        <div>
+                            <div class="text-3xl font-black text-blue-500 mb-1">100%</div>
+                            <div class="text-sm text-slate-400">Supporto Tecnico Dedicato</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="relative">
+                    <div class="w-full h-80 rounded-2xl bg-gradient-to-br from-blue-900/40 to-slate-800 border border-slate-700 p-8 flex flex-col justify-between shadow-2xl relative overflow-hidden">
+                        <div class="absolute inset-0 bg-[radial-gradient(#3b82f6_1px,transparent_1px)] [background-size:12px_12px] opacity-10"></div>
+                        <div class="text-blue-400 font-mono text-xs uppercase tracking-widest">SK Group System Lab</div>
+                        <div>
+                            <div class="text-2xl font-bold text-white mb-2">Innovazione & Affidabilità</div>
+                            <p class="text-slate-400 text-sm">Dalla progettazione di workstation custom alla componentistica per quadri elettrici PLC.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
-    </main>
+    </section>
+
+    <!-- Prodotti & Servizi -->
+    <section id="prodotti" class="py-20 bg-slate-950">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center max-w-3xl mx-auto mb-16">
+                <h2 class="text-3xl font-bold text-white mb-4">I Nostri Settori & Prodotti</h2>
+                <p class="text-slate-400">Soluzioni hardware professionali progettate per garantire massima efficienza e stabilità.</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <!-- Card 1: PC Custom -->
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 hover:border-blue-500/50 transition duration-300 group">
+                    <div class="w-full h-48 rounded-xl bg-slate-800 mb-6 overflow-hidden relative flex items-center justify-center border border-slate-700/50">
+                        <div class="absolute inset-0 bg-gradient-to-tr from-blue-600/20 to-transparent"></div>
+                        <span class="text-4xl">💻</span>
+                    </div>
+                    <h3 class="text-xl font-bold text-white mb-2 group-hover:text-blue-400 transition">PC Custom & Workstation</h3>
+                    <p class="text-slate-400 text-sm leading-relaxed mb-4">
+                        Assemblaggio di computer su misura con componenti selezionati (CPU, GPU, schede madri e sistemi di raffreddamento a liquido) per gaming, editing e carichi di lavoro intensivi.
+                    </p>
+                </div>
+
+                <!-- Card 2: Schede Elettroniche -->
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 hover:border-blue-500/50 transition duration-300 group">
+                    <div class="w-full h-48 rounded-xl bg-slate-800 mb-6 overflow-hidden relative flex items-center justify-center border border-slate-700/50">
+                        <div class="absolute inset-0 bg-gradient-to-tr from-indigo-600/20 to-transparent"></div>
+                        <span class="text-4xl">🔌</span>
+                    </div>
+                    <h3 class="text-xl font-bold text-white mb-2 group-hover:text-blue-400 transition">Componenti & Schede Elettroniche</h3>
+                    <p class="text-slate-400 text-sm leading-relaxed mb-4">
+                        Vendita e fornitura di componentistica elettronica avanzata, schede madri industriali e parti di ricambio testate per tecnici e laboratori di riparazione.
+                    </p>
+                </div>
+
+                <!-- Card 3: Sistemi PLC -->
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 hover:border-blue-500/50 transition duration-300 group">
+                    <div class="w-full h-48 rounded-xl bg-slate-800 mb-6 overflow-hidden relative flex items-center justify-center border border-slate-700/50">
+                        <div class="absolute inset-0 bg-gradient-to-tr from-blue-500/20 to-transparent"></div>
+                        <span class="text-4xl">⚙️</span>
+                    </div>
+                    <h3 class="text-xl font-bold text-white mb-2 group-hover:text-blue-400 transition">Sistemi & Componenti PLC</h3>
+                    <p class="text-slate-400 text-sm leading-relaxed mb-4">
+                        Dispositivi per l'automazione industriale, moduli PLC e accessori dedicati al controllo intelligente dei processi e dei macchinari aziendali.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
 
     <!-- Footer -->
-    <footer class="max-w-6xl mx-auto w-full p-6 text-center text-xs text-slate-500 border-t border-slate-800">
-        &copy; 2026 Gestione Inventario PLC. Tutti i diritti riservati.
+    <footer id="contatti" class="bg-slate-900 border-t border-slate-800 py-12">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center">
+            <div class="flex items-center space-x-3 mb-4 md:mb-0">
+                <div class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold">SK</div>
+                <span class="text-sm font-bold text-white">SK GROUP SYSTEM</span>
+            </div>
+            <p class="text-xs text-slate-500">
+                &copy; 2026 SK Group System. Tutti i diritti riservati.
+            </p>
+        </div>
     </footer>
 
 </body>
