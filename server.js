@@ -179,3 +179,10 @@ app.post('/api/checkout', (req, res) => {
 app.listen(PORT, () => {
     console.log(`Server avviato e in ascolto sulla porta ${PORT}`);
 });
+app.get('/login', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
+// Mostra la dashboard solo se l'utente ha fatto il login (puoi passare il token o gestire il reindirizzamento via frontend)
+app.get('/dashboard', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
+});
