@@ -8,9 +8,9 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const SECRET_KEY = 'sk_group_system_super_secret_key'; // Chiave segreta per i token JWT
 
-// Middleware per leggere il JSON e servire i file statici
+// Middleware per leggere il JSON e servire i file statici dalla cartella "public"
 app.use(express.json());
-app.use(express.static(path.join(__dirname)));
+app.use(express.static(path.join(__dirname, 'public')));
 
 // Connessione e inizializzazione del database SQLite
 const db = new sqlite3.Database('./database.db', (err) => {
@@ -57,6 +57,13 @@ db.serialize(() => {
 });
 
 // ==========================================
+// ROTTA PRINCIPALE (Puntata alla cartella public)
+// ==========================================
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// ==========================================
 // MIDDLEWARE DI AUTENTICAZIONE (JWT)
 // ==========================================
 function verifyToken(req, res, next) {
@@ -67,7 +74,7 @@ function verifyToken(req, res, next) {
 
     jwt.verify(token, SECRET_KEY, (err, user) => {
         if (err) return res.status(403).json({ error: "Token non valido o scaduto." });
-        req.user = user; // Salva i dati dell'utente (id, username, role) nella richiesta
+        req.user = user; // Salva i dati dell'utente nella richiesta
         next();
     });
 }
@@ -125,7 +132,7 @@ app.post('/api/admin/crea-utente', verifyToken, async (req, res) => {
 // ROTTE API - PRODOTTI & SHOP
 // ==========================================
 
-// Ottieni i prodotti in base alla categoria (es: componenti-pc, custom-pc, plc-sistemi)
+// Ottieni i prodotti in base alla categoria
 app.get('/api/prodotti/:categoria', (req, res) => {
     const categoria = req.params.categoria;
     db.all(`SELECT * FROM prodotti WHERE categoria = ?`, [categoria], (err, rows) => {
@@ -171,8 +178,4 @@ app.post('/api/checkout', (req, res) => {
 // Avvio del Server
 app.listen(PORT, () => {
     console.log(`Server avviato e in ascolto sulla porta ${PORT}`);
-});
-// Aggiungi questa rotta in server.js
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
 });
