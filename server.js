@@ -172,3 +172,7 @@ app.post('/api/checkout', (req, res) => {
 app.listen(PORT, () => {
     console.log(`Server avviato e in ascolto sulla porta ${PORT}`);
 });
+// Aggiungi questa rotta in server.js
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
