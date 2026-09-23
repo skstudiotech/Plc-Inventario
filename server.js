@@ -57,10 +57,22 @@ db.serialize(() => {
 });
 
 // ==========================================
-// ROTTA PRINCIPALE (Puntata alla cartella public)
+// ROTTE ESPLICITE PER I FILE HTML
 // ==========================================
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+app.get('/login.html', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
+
+app.get('/dashboard.html', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
+});
+
+app.get('/componenti-pc.html', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'componenti-pc.html'));
 });
 
 // ==========================================
@@ -178,11 +190,4 @@ app.post('/api/checkout', (req, res) => {
 // Avvio del Server
 app.listen(PORT, () => {
     console.log(`Server avviato e in ascolto sulla porta ${PORT}`);
-});
-app.get('/login', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'login.html'));
-});
-// Mostra la dashboard solo se l'utente ha fatto il login (puoi passare il token o gestire il reindirizzamento via frontend)
-app.get('/dashboard', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
 });
