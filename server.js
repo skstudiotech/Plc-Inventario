@@ -52,9 +52,9 @@ db.serialize(() => {
         nome TEXT UNIQUE NOT NULL,
         colore TEXT DEFAULT '#64748b'
     )`, () => {
-        db.run(`INSERT OR IGNORE INTO categorie (nome, colore) VALUES ('Elettronica', '#3b82f6')`);
-        db.run(`INSERT OR IGNORE INTO categorie (nome, colore) VALUES ('Schede Video', '#8b5cf6')`);
-        db.run(`INSERT OR IGNORE INTO categorie (nome, colore) VALUES ('Componenti PLC', '#10b981')`);
+        db.run(`INSERT OR IGNORE INTO categorie (nome, colore) VALUES ('Componenti PC & Schede Madri', '#3b82f6')`);
+        db.run(`INSERT OR IGNORE INTO categorie (nome, colore) VALUES ('Costruzione Custom PC', '#8b5cf6')`);
+        db.run(`INSERT OR IGNORE INTO categorie (nome, colore) VALUES ('Sistemi PLC & Componenti', '#10b981')`);
         db.run(`INSERT OR IGNORE INTO categorie (nome, colore) VALUES ('Generico', '#64748b')`);
     });
 
@@ -95,7 +95,6 @@ app.post('/api/login', (req, res) => {
     });
 });
 
-// L'Admin può creare qualsiasi utente e qualsiasi ruolo liberamente
 app.post('/api/admin/crea-utente', verifyToken, async (req, res) => {
     if (req.user.ruolo !== 'Admin' && req.user.role !== 'admin') {
         return res.status(403).json({ error: "Accesso negato. Solo l'Admin può creare account." });
@@ -177,6 +176,9 @@ app.get('/api/categorie', verifyToken, (req, res) => {
 });
 
 app.post('/api/categorie', verifyToken, (req, res) => {
+    if (req.user.ruolo !== 'Admin' && req.user.role !== 'admin') {
+        return res.status(403).json({ error: "Solo l'Admin può creare o modificare le categorie." });
+    }
     const { nome, colore } = req.body;
     db.run(`INSERT INTO categorie (nome, colore) VALUES (?, ?)`, [nome, colore || '#64748b'], function(err) {
         if (err) return res.status(500).json({ error: "Categoria già esistente." });
@@ -186,6 +188,9 @@ app.post('/api/categorie', verifyToken, (req, res) => {
 });
 
 app.delete('/api/categorie/:id', verifyToken, (req, res) => {
+    if (req.user.ruolo !== 'Admin' && req.user.role !== 'admin') {
+        return res.status(403).json({ error: "Accesso negato." });
+    }
     db.run(`DELETE FROM categorie WHERE id = ?`, [req.params.id], function(err) {
         if (err) return res.status(500).json({ error: "Errore eliminazione." });
         io.emit('categorie_aggiornate');
@@ -193,7 +198,7 @@ app.delete('/api/categorie/:id', verifyToken, (req, res) => {
     });
 });
 
-// ================= API PRODOTTI & PLC =================
+// ================= API PRODOTTI & SHOP =================
 
 app.get('/api/prodotti', verifyToken, (req, res) => {
     db.all(`SELECT * FROM prodotti`, [], (err, rows) => {
@@ -202,21 +207,28 @@ app.get('/api/prodotti', verifyToken, (req, res) => {
     });
 });
 
-app.get('/api/prodotti/:categoria', (req, res) => {
-    db.all(`SELECT * FROM prodotti WHERE categoria = ?`, [req.params.categoria], (err, rows) => {
+// Endpoint pubblico per caricare i prodotti dello shop divisi per categoria
+app.get('/api/prodotti/categoria/:categoria', (req, res) => {
+    const categoriaDecodificata = decodeURIComponent(req.params.categoria);
+    db.all(`SELECT * FROM prodotti WHERE categoria = ?`, [categoriaDecodificata], (err, rows) => {
         if (err) return res.status(500).json({ error: "Errore database." });
         res.json(rows);
     });
 });
 
+// Pubblicazione prodotti/annunci (consentito ad Admin e Ufficio)
 app.post('/api/prodotti', verifyToken, (req, res) => {
+    if (req.user.ruolo !== 'Admin' && req.user.role !== 'admin' && req.user.ruolo !== 'Ufficio' && req.user.role !== 'Ufficio') {
+        return res.status(403).json({ error: "Non hai i permessi necessari per aggiungere prodotti." });
+    }
+
     const { codice_barre, nome, categoria, prezzo, quantita, immagine, descrizione } = req.body;
     const codiceGenerato = codice_barre || Math.floor(10000000 + Math.random() * 90000000).toString();
     const qty = quantita || 1;
 
     db.run(`INSERT INTO prodotti (codice_barre, nome, categoria, quantita, prezzo, immagine, descrizione) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [codiceGenerato, nome, categoria || 'Generico', qty, prezzo || 0, immagine || '', descrizione || ''], function(err) {
-        if (err) return res.status(500).json({ error: "Codice a barre già esistente o errore." });
+        [codiceGenerato, nome, categoria || 'Componenti PC & Schede Madri', qty, prezzo || 0, immagine || '', descrizione || ''], function(err) {
+        if (err) return res.status(500).json({ error: "Errore nel salvataggio del prodotto." });
         io.emit('inventario_aggiornato');
         res.json({ success: true, id: this.lastID, codice_generato: codiceGenerato });
     });
@@ -240,6 +252,20 @@ app.delete('/api/prodotti/:id', verifyToken, async (req, res) => {
     });
 });
 
+app.post('/api/checkout', (req, res) => {
+    const { prodottoId } = req.body;
+    db.get(`SELECT * FROM prodotti WHERE id = ?`, [prodottoId], (err, prod) => {
+        if (err || !prod) return res.status(404).json({ success: false, error: "Prodotto non trovato." });
+        if (prod.quantita <= 0) return res.status(400).json({ success: false, error: "Prodotto esaurito." });
+
+        db.run(`UPDATE prodotti SET quantita = quantita - 1 WHERE id = ?`, [prodottoId], (updateErr) => {
+            if (updateErr) return res.status(500).json({ success: false, error: "Errore durante l'ordine." });
+            io.emit('inventario_aggiornato');
+            res.json({ success: true, message: `Ordine effettuato con successo per ${prod.nome}!` });
+        });
+    });
+});
+
 app.post('/api/plc/scansione', verifyToken, (req, res) => {
     const { codice_barre } = req.body;
     db.get(`SELECT * FROM prodotti WHERE codice_barre = ?`, [codice_barre], (err, prod) => {
@@ -255,29 +281,4 @@ app.post('/api/plc/scansione', verifyToken, (req, res) => {
 
 server.listen(PORT, () => {
     console.log(`Server avviato e in ascolto sulla porta ${PORT}`);
-});
-// Aggiunta prodotto per lo Shop (consentito ad Admin e Ufficio)
-app.post('/api/prodotti', verifyToken, (req, res) => {
-    if (req.user.ruolo !== 'Admin' && req.user.role !== 'admin' && req.user.ruolo !== 'Ufficio' && req.user.role !== 'Ufficio') {
-        return res.status(403).json({ error: "Non hai i permessi necessari per aggiungere prodotti." });
-    }
-
-    const { codice_barre, nome, categoria, prezzo, quantita, immagine, descrizione } = req.body;
-    const codiceGenerato = codice_barre || Math.floor(10000000 + Math.random() * 90000000).toString();
-    const qty = quantita || 1;
-
-    db.run(`INSERT INTO prodotti (codice_barre, nome, categoria, quantita, prezzo, immagine, descrizione) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [codiceGenerato, nome, categoria || 'Componenti PC & Schede Madri', qty, prezzo || 0, immagine || '', descrizione || ''], function(err) {
-        if (err) return res.status(500).json({ error: "Errore nel salvataggio del prodotto." });
-        io.emit('inventario_aggiornato');
-        res.json({ success: true, id: this.lastID, codice_generato: codiceGenerato });
-    });
-});
-
-// Blocco modifiche categorie per il ruolo Ufficio
-app.post('/api/categorie', verifyToken, (req, res) => {
-    if (req.user.ruolo !== 'Admin' && req.user.role !== 'admin') {
-        return res.status(403).json({ error: "Solo l'Admin può creare o modificare le categorie." });
-    }
-    // ... resto del codice categorie ...
 });

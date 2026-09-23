@@ -27,7 +27,7 @@
     <main class="pt-32 pb-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="mb-12 text-center">
             <h1 class="text-3xl sm:text-4xl font-black text-white mb-4">Componenti PC & Schede Madri</h1>
-            <p class="text-slate-400 max-w-xl mx-auto">Catalogo ufficiale sincronizzato in tempo reale con il magazzino centrale.</p>
+            <p class="text-slate-400 max-w-xl mx-auto">Catalogo ufficiale sincronizzato in tempo reale con gli annunci dell'ufficio.</p>
         </div>
 
         <!-- Griglia Prodotti -->
@@ -36,10 +36,10 @@
                 <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col justify-between shadow-xl">
                     <div>
                         <div class="w-full h-48 rounded-xl bg-slate-800 mb-6 overflow-hidden relative border border-slate-700/50">
-                            <img :src="item.immagine" :alt="item.nome" class="w-full h-full object-cover">
+                            <img :src="item.immagine || 'https://images.unsplash.com/photo-1555680202-c86f0e12f086?auto=format&fit=crop&w=800&q=80'" :alt="item.nome" class="w-full h-full object-cover">
                         </div>
                         <h3 class="text-xl font-bold text-white mb-2" x-text="item.nome"></h3>
-                        <p class="text-slate-400 text-sm mb-4" x-text="item.descrizione"></p>
+                        <p class="text-slate-400 text-sm mb-4" x-text="item.descrizione || 'Componente selezionato di alta qualità.'"></p>
                         <div class="flex items-center justify-between mb-4">
                             <span class="text-lg font-black text-blue-400" x-text="item.prezzo + ' €'"></span>
                             <span class="text-xs font-semibold px-2.5 py-1 rounded-full" 
@@ -65,8 +65,7 @@
                 prodotti: [],
                 async init() {
                     try {
-                        // Richiede i prodotti dal database per la categoria specifica
-                        const response = await fetch('/api/prodotti/componenti-pc');
+                        const response = await fetch('/api/prodotti/categoria/Componenti PC & Schede Madri');
                         this.prodotti = await response.json();
                     } catch (error) {
                         console.error("Errore nel caricamento prodotti:", error);
@@ -82,7 +81,7 @@
                         const data = await res.json();
                         if (data.success) {
                             alert(data.message);
-                            location.reload(); // Aggiorna la pagina per scalare lo stock visibile
+                            location.reload();
                         } else {
                             alert(data.error);
                         }
