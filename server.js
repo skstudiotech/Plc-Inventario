@@ -3,17 +3,21 @@ const sqlite3 = require('sqlite3').verbose();
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const path = require('path');
+const http = require('http');
+const { Server } = require('socket.io');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
-const SECRET_KEY = 'sk_group_system_super_secret_key'; // Chiave segreta per i token JWT
+const server = http.createServer(app);
+const io = new Server(server);
 
-// Middleware per leggere il JSON e servire i file statici dalla cartella "public"
+const PORT = process.env.PORT || 3000;
+const SECRET_KEY = 'sk_group_system_super_secret_key';
+
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Connessione e inizializzazione del database SQLite
-const db = new sqlite3.Database('./database.db', (err) => {
+// Connessione al database SQLite
+const db = new sqlite3.Database(path.resolve(__dirname, 'database.db'), (err) => {
     if (err) {
         console.error('Errore di connessione al database SQLite:', err.message);
     } else {
@@ -21,173 +25,234 @@ const db = new sqlite3.Database('./database.db', (err) => {
     }
 });
 
-// Creazione delle tabelle necessarie all'avvio
+// Inizializzazione tabelle
 db.serialize(() => {
-    // Tabella Utenti (con ruolo admin, Ufficio, ecc.)
+    db.run("PRAGMA foreign_keys = ON");
+
     db.run(`CREATE TABLE IF NOT EXISTS utenti (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT UNIQUE,
         password TEXT,
-        role TEXT
+        ruolo TEXT DEFAULT 'Operatore'
     )`);
 
-    // Tabella Prodotti per lo Shop e Magazzino
     db.run(`CREATE TABLE IF NOT EXISTS prodotti (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        codice_barre TEXT UNIQUE,
         nome TEXT,
-        categoria TEXT,
-        prezzo REAL,
-        quantita INTEGER,
+        categoria TEXT DEFAULT 'Generico',
+        quantita INTEGER DEFAULT 0,
+        prezzo REAL DEFAULT 0,
         immagine TEXT,
         descrizione TEXT
     )`);
 
-    // Crea automaticamente un account admin di default se non esiste
+    db.run(`CREATE TABLE IF NOT EXISTS categorie (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nome TEXT UNIQUE NOT NULL,
+        colore TEXT DEFAULT '#64748b'
+    )`, () => {
+        db.run(`INSERT OR IGNORE INTO categorie (nome, colore) VALUES ('Elettronica', '#3b82f6')`);
+        db.run(`INSERT OR IGNORE INTO categorie (nome, colore) VALUES ('Schede Video', '#8b5cf6')`);
+        db.run(`INSERT OR IGNORE INTO categorie (nome, colore) VALUES ('Componenti PLC', '#10b981')`);
+        db.run(`INSERT OR IGNORE INTO categorie (nome, colore) VALUES ('Generico', '#64748b')`);
+    });
+
+    // Account Admin predefinito
     db.get(`SELECT * FROM utenti WHERE username = ?`, ['admin'], async (err, row) => {
         if (!row) {
-            const hashedPassword = await bcrypt.hash('admin123', 10);
-            db.run(`INSERT INTO utenti (username, password, role) VALUES (?, ?, ?)`, 
-                ['admin', hashedPassword, 'admin'], 
-                (err) => {
-                    if (!err) console.log("Account Admin predefinito creato (admin / admin123)");
-                }
-            );
+            const hashedPassword = await bcrypt.hash('admin', 10);
+            db.run(`INSERT INTO utenti (username, password, ruolo) VALUES (?, ?, ?)`, ['admin', hashedPassword, 'Admin']);
         }
     });
 });
 
-// ==========================================
-// ROTTE ESPLICITE PER I FILE HTML
-// ==========================================
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
-app.get('/login.html', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'login.html'));
-});
-
-app.get('/dashboard.html', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
-});
-
-app.get('/componenti-pc.html', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'componenti-pc.html'));
-});
-
-// ==========================================
-// MIDDLEWARE DI AUTENTICAZIONE (JWT)
-// ==========================================
+// Middleware autenticazione JWT
 function verifyToken(req, res, next) {
     const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1]; // Formato: "Bearer TOKEN"
-
+    const token = authHeader && authHeader.split(' ')[1];
     if (!token) return res.status(401).json({ error: "Accesso non autorizzato. Token mancante." });
 
     jwt.verify(token, SECRET_KEY, (err, user) => {
         if (err) return res.status(403).json({ error: "Token non valido o scaduto." });
-        req.user = user; // Salva i dati dell'utente nella richiesta
+        req.user = user;
         next();
     });
 }
 
-// ==========================================
-// ROTTE API - AUTENTICAZIONE & UTENTI
-// ==========================================
+// ================= API AUTH & UTENTI =================
 
-// Login (Genera il token JWT)
 app.post('/api/login', (req, res) => {
     const { username, password } = req.body;
-
     db.get(`SELECT * FROM utenti WHERE username = ?`, [username], async (err, user) => {
-        if (err || !user) {
-            return res.status(400).json({ error: "Credenziali non valide." });
-        }
+        if (err || !user) return res.status(400).json({ error: "Credenziali non valide." });
 
         const match = await bcrypt.compare(password, user.password);
-        if (!match) {
-            return res.status(400).json({ error: "Credenziali non valide." });
-        }
+        if (!match) return res.status(400).json({ error: "Credenziali non valide." });
 
-        // Genera il token valido per 2 ore
-        const token = jwt.sign({ id: user.id, username: user.username, role: user.role }, SECRET_KEY, { expiresIn: '2h' });
-        res.json({ success: true, token, role: user.role });
+        const token = jwt.sign({ id: user.id, username: user.username, ruolo: user.ruolo }, SECRET_KEY, { expiresIn: '2h' });
+        res.json({ success: true, token, ruolo: user.ruolo, username: user.username });
     });
 });
 
-// Creazione utente "Ufficio" (Consentita SOLO all'Admin autenticato)
+// L'Admin può creare qualsiasi utente e qualsiasi ruolo liberamente
 app.post('/api/admin/crea-utente', verifyToken, async (req, res) => {
-    if (req.user.role !== 'admin') {
-        return res.status(403).json({ error: "Accesso negato. Solo l'Admin può creare account Ufficio." });
+    if (req.user.ruolo !== 'Admin' && req.user.role !== 'admin') {
+        return res.status(403).json({ error: "Accesso negato. Solo l'Admin può creare account." });
     }
     
-    const { username, password, role } = req.body;
-    
-    if (role !== 'Ufficio') {
-        return res.status(400).json({ error: "Ruolo non valido. Può essere creato solo il ruolo 'Ufficio'." });
-    }
+    const { newUsername, newPassword, ruolo } = req.body;
+    const ruoloScelto = ruolo || req.body.role || 'Operatore';
 
     try {
-        const hashedPassword = await bcrypt.hash(password, 10);
-        db.run(`INSERT INTO utenti (username, password, role) VALUES (?, ?, ?)`, [username, hashedPassword, role], function(err) {
-            if (err) {
-                return res.status(500).json({ error: "Errore: nome utente già esistente o database occupato." });
-            }
-            res.json({ success: true, message: "Utente Ufficio creato con successo!" });
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        db.run(`INSERT INTO utenti (username, password, ruolo) VALUES (?, ?, ?)`, [newUsername, hashedPassword, ruoloScelto], function(err) {
+            if (err) return res.status(500).json({ error: "Nome utente già esistente." });
+            res.json({ success: true, message: "Utente creato con successo!" });
         });
     } catch (e) {
         res.status(500).json({ error: "Errore interno del server." });
     }
 });
 
-// ==========================================
-// ROTTE API - PRODOTTI & SHOP
-// ==========================================
-
-// Ottieni i prodotti in base alla categoria
-app.get('/api/prodotti/:categoria', (req, res) => {
-    const categoria = req.params.categoria;
-    db.all(`SELECT * FROM prodotti WHERE categoria = ?`, [categoria], (err, rows) => {
-        if (err) return res.status(500).json({ error: "Errore durante il recupero dei prodotti." });
+app.get('/api/admin/utenti', verifyToken, (req, res) => {
+    if (req.user.ruolo !== 'Admin' && req.user.role !== 'admin') return res.status(403).json({ error: "Accesso negato." });
+    db.all(`SELECT id, username, ruolo FROM utenti`, [], (err, rows) => {
+        if (err) return res.status(500).json({ error: "Errore database." });
         res.json(rows);
     });
 });
 
-// Aggiungi un nuovo prodotto (Consentito SOLO ad Admin e Ufficio)
-app.post('/api/prodotti', verifyToken, (req, res) => {
-    if (req.user.role !== 'admin' && req.user.role !== 'Ufficio') {
-        return res.status(403).json({ error: "Non hai i permessi necessari per aggiungere prodotti." });
-    }
-
-    const { nome, categoria, prezzo, quantita, immagine, descrizione } = req.body;
-    const query = `INSERT INTO prodotti (nome, categoria, prezzo, quantita, immagine, descrizione) VALUES (?, ?, ?, ?, ?, ?)`;
-    
-    db.run(query, [nome, categoria, prezzo, quantita, immagine, descrizione], function(err) {
-        if (err) return res.status(500).json({ error: "Errore nel salvataggio del prodotto nel database." });
-        res.json({ success: true, id: this.lastID, message: "Prodotto aggiunto con successo!" });
+app.put('/api/admin/cambia-ruolo', verifyToken, (req, res) => {
+    if (req.user.ruolo !== 'Admin' && req.user.role !== 'admin') return res.status(403).json({ error: "Accesso negato." });
+    const { id, nuovoRuolo } = req.body;
+    db.run(`UPDATE utenti SET ruolo = ? WHERE id = ?`, [nuoRuolo, id], function(err) {
+        if (err) return res.status(500).json({ error: "Errore aggiornamento ruolo." });
+        res.json({ success: true });
     });
 });
 
-// Gestione Checkout / Ordine (Controlla e scala la quantità di 1 nel database)
-app.post('/api/checkout', (req, res) => {
-    const { prodottoId } = req.body;
+app.put('/api/admin/cambia-password-utente', verifyToken, async (req, res) => {
+    if (req.user.ruolo !== 'Admin' && req.user.role !== 'admin') return res.status(403).json({ error: "Accesso negato." });
+    const { id, nuovaPassword } = req.body;
+    try {
+        const hashed = await bcrypt.hash(nuovaPassword, 10);
+        db.run(`UPDATE utenti SET password = ? WHERE id = ?`, [hashed, id], function(err) {
+            if (err) return res.status(500).json({ error: "Errore aggiornamento password." });
+            res.json({ success: true });
+        });
+    } catch (e) {
+        res.status(500).json({ error: "Errore server." });
+    }
+});
 
-    db.get(`SELECT quantita, nome FROM prodotti WHERE id = ?`, [prodottoId], (err, row) => {
-        if (err || !row) return res.status(404).json({ error: "Prodotto non trovato." });
+app.delete('/api/admin/elimina-utente/:id', verifyToken, (req, res) => {
+    if (req.user.ruolo !== 'Admin' && req.user.role !== 'admin') return res.status(403).json({ error: "Accesso negato." });
+    db.run(`DELETE FROM utenti WHERE id = ?`, [req.params.id], function(err) {
+        if (err) return res.status(500).json({ error: "Errore eliminazione utente." });
+        res.json({ success: true });
+    });
+});
 
-        if (row.quantita <= 0) {
-            return res.status(400).json({ error: `Spiacenti, ${row.nome} è attualmente esaurito!` });
-        }
+app.post('/api/cambia-password', verifyToken, async (req, res) => {
+    const { nuovaPassword } = req.body;
+    try {
+        const hashed = await bcrypt.hash(nuovaPassword, 10);
+        db.run(`UPDATE utenti SET password = ? WHERE id = ?`, [hashed, req.user.id], function(err) {
+            if (err) return res.status(500).json({ error: "Errore aggiornamento password." });
+            res.json({ success: true });
+        });
+    } catch (e) {
+        res.status(500).json({ error: "Errore server." });
+    }
+});
 
-        // Scala la quantità di 1
-        db.run(`UPDATE prodotti SET quantita = quantita - 1 WHERE id = ?`, [prodottoId], (updateErr) => {
-            if (updateErr) return res.status(500).json({ error: "Errore durante l'aggiornamento dello stock." });
-            res.json({ success: true, message: `Ordine completato per ${row.nome}! Quantità aggiornata nel database centrale.` });
+// ================= API CATEGORIE =================
+
+app.get('/api/categorie', verifyToken, (req, res) => {
+    db.all(`SELECT * FROM categorie`, [], (err, rows) => {
+        if (err) return res.status(500).json({ error: "Errore database." });
+        res.json(rows);
+    });
+});
+
+app.post('/api/categorie', verifyToken, (req, res) => {
+    const { nome, colore } = req.body;
+    db.run(`INSERT INTO categorie (nome, colore) VALUES (?, ?)`, [nome, colore || '#64748b'], function(err) {
+        if (err) return res.status(500).json({ error: "Categoria già esistente." });
+        io.emit('categorie_aggiornate');
+        res.json({ success: true, id: this.lastID });
+    });
+});
+
+app.delete('/api/categorie/:id', verifyToken, (req, res) => {
+    db.run(`DELETE FROM categorie WHERE id = ?`, [req.params.id], function(err) {
+        if (err) return res.status(500).json({ error: "Errore eliminazione." });
+        io.emit('categorie_aggiornate');
+        res.json({ success: true });
+    });
+});
+
+// ================= API PRODOTTI & PLC =================
+
+app.get('/api/prodotti', verifyToken, (req, res) => {
+    db.all(`SELECT * FROM prodotti`, [], (err, rows) => {
+        if (err) return res.status(500).json({ error: "Errore database." });
+        res.json(rows);
+    });
+});
+
+app.get('/api/prodotti/:categoria', (req, res) => {
+    db.all(`SELECT * FROM prodotti WHERE categoria = ?`, [req.params.categoria], (err, rows) => {
+        if (err) return res.status(500).json({ error: "Errore database." });
+        res.json(rows);
+    });
+});
+
+app.post('/api/prodotti', verifyToken, (req, res) => {
+    const { codice_barre, nome, categoria, prezzo, quantita, immagine, descrizione } = req.body;
+    const codiceGenerato = codice_barre || Math.floor(10000000 + Math.random() * 90000000).toString();
+    const qty = quantita || 1;
+
+    db.run(`INSERT INTO prodotti (codice_barre, nome, categoria, quantita, prezzo, immagine, descrizione) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [codiceGenerato, nome, categoria || 'Generico', qty, prezzo || 0, immagine || '', descrizione || ''], function(err) {
+        if (err) return res.status(500).json({ error: "Codice a barre già esistente o errore." });
+        io.emit('inventario_aggiornato');
+        res.json({ success: true, id: this.lastID, codice_generato: codiceGenerato });
+    });
+});
+
+app.delete('/api/prodotti/:id', verifyToken, async (req, res) => {
+    if (req.user.ruolo !== 'Admin' && req.user.role !== 'admin') {
+        return res.status(403).json({ error: "Solo l'Admin può eliminare i prodotti." });
+    }
+    const { password } = req.body;
+    db.get(`SELECT password FROM utenti WHERE id = ?`, [req.user.id], async (err, row) => {
+        if (err || !row) return res.status(400).json({ error: "Utente non trovato." });
+        const match = await bcrypt.compare(password, row.password);
+        if (!match) return res.status(400).json({ error: "Password errata." });
+
+        db.run(`DELETE FROM prodotti WHERE id = ?`, [req.params.id], function(err) {
+            if (err) return res.status(500).json({ error: "Errore eliminazione." });
+            io.emit('inventario_aggiornato');
+            res.json({ success: true });
         });
     });
 });
 
-// Avvio del Server
-app.listen(PORT, () => {
+app.post('/api/plc/scansione', verifyToken, (req, res) => {
+    const { codice_barre } = req.body;
+    db.get(`SELECT * FROM prodotti WHERE codice_barre = ?`, [codice_barre], (err, prod) => {
+        if (err || !prod) return res.status(404).json({ error: "Prodotto non trovato sul nastro PLC." });
+
+        db.run(`UPDATE prodotti SET quantita = quantita + 1 WHERE id = ?`, [prod.id], (updateErr) => {
+            if (updateErr) return res.status(500).json({ error: "Errore aggiornamento quantità." });
+            io.emit('inventario_aggiornato');
+            res.json({ success: true, status: `Scansione PLC riuscita: ${prod.nome} (+1)` });
+        });
+    });
+});
+
+server.listen(PORT, () => {
     console.log(`Server avviato e in ascolto sulla porta ${PORT}`);
 });
