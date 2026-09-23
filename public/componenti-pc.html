@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="it" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Componenti PC & Schede Madri - SK Group System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans antialiased selection:bg-blue-600 selection:text-white" x-data="shopApp()">
+
+    <!-- Header / Navbar -->
+    <header class="fixed top-0 left-0 right-0 z-50 bg-slate-900/80 backdrop-blur-md border-b border-slate-800">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <a href="index.html" class="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-600/30 text-white font-black text-xl">SK</a>
+                <span class="text-lg font-bold tracking-wider text-white">SK GROUP SYSTEM</span>
+            </div>
+            <nav class="hidden md:flex items-center space-x-8">
+                <a href="index.html" class="text-sm font-medium hover:text-blue-400 transition">Home</a>
+                <a href="index.html#prodotti" class="text-sm font-medium text-blue-400 transition">Torna ai Settori</a>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Sezione Prodotti Dinamica -->
+    <main class="pt-32 pb-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="mb-12 text-center">
+            <h1 class="text-3xl sm:text-4xl font-black text-white mb-4">Componenti PC & Schede Madri</h1>
+            <p class="text-slate-400 max-w-xl mx-auto">Catalogo ufficiale sincronizzato in tempo reale con il magazzino centrale.</p>
+        </div>
+
+        <!-- Griglia Prodotti -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <template x-for="item in prodotti" :key="item.id">
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col justify-between shadow-xl">
+                    <div>
+                        <div class="w-full h-48 rounded-xl bg-slate-800 mb-6 overflow-hidden relative border border-slate-700/50">
+                            <img :src="item.immagine" :alt="item.nome" class="w-full h-full object-cover">
+                        </div>
+                        <h3 class="text-xl font-bold text-white mb-2" x-text="item.nome"></h3>
+                        <p class="text-slate-400 text-sm mb-4" x-text="item.descrizione"></p>
+                        <div class="flex items-center justify-between mb-4">
+                            <span class="text-lg font-black text-blue-400" x-text="item.prezzo + ' €'"></span>
+                            <span class="text-xs font-semibold px-2.5 py-1 rounded-full" 
+                                  :class="item.quantita > 0 ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'"
+                                  x-text="item.quantita > 0 ? 'Disponibili: ' + item.quantita : 'Esaurito'">
+                            </span>
+                        </div>
+                    </div>
+                    <button @click="acquista(item.id)" 
+                            :disabled="item.quantita <= 0"
+                            class="w-full font-bold py-3 px-4 rounded-xl text-sm transition flex items-center justify-center shadow-lg"
+                            :class="item.quantita > 0 ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-600/30 cursor-pointer' : 'bg-slate-800 text-slate-500 cursor-not-allowed'">
+                        Acquista / Ordina
+                    </button>
+                </div>
+            </template>
+        </div>
+    </main>
+
+    <script>
+        function shopApp() {
+            return {
+                prodotti: [],
+                async init() {
+                    try {
+                        // Richiede i prodotti dal database per la categoria specifica
+                        const response = await fetch('/api/prodotti/componenti-pc');
+                        this.prodotti = await response.json();
+                    } catch (error) {
+                        console.error("Errore nel caricamento prodotti:", error);
+                    }
+                },
+                async acquista(id) {
+                    try {
+                        const res = await fetch('/api/checkout', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ prodottoId: id })
+                        });
+                        const data = await res.json();
+                        if (data.success) {
+                            alert(data.message);
+                            location.reload(); // Aggiorna la pagina per scalare lo stock visibile
+                        } else {
+                            alert(data.error);
+                        }
+                    } catch (err) {
+                        alert("Errore di connessione durante l'acquisto.");
+                    }
+                }
+            }
+        }
+    </script>
+</body>
+</html>

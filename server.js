@@ -1,263 +1,174 @@
 const express = require('express');
-const app = express();
-const http = require('http');
-const server = http.createServer(app);
-const { Server } = require("socket.io");
-const io = new Server(server);
 const sqlite3 = require('sqlite3').verbose();
-const { open } = require('sqlite');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const path = require('path');
 
-const JWT_SECRET = 'chiave_segreta_gestionale_plc_2026';
+const app = express();
+const PORT = process.env.PORT || 3000;
+const SECRET_KEY = 'sk_group_system_super_secret_key'; // Chiave segreta per i token JWT
 
+// Middleware per leggere il JSON e servire i file statici
 app.use(express.json());
-app.use(express.static('public'));
+app.use(express.static(path.join(__dirname)));
 
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'home.html'));
+// Connessione e inizializzazione del database SQLite
+const db = new sqlite3.Database('./database.db', (err) => {
+    if (err) {
+        console.error('Errore di connessione al database SQLite:', err.message);
+    } else {
+        console.log('Connesso al database SQLite.');
+    }
 });
 
-async function getDb() {
-    return open({
-        filename: './inventario.db',
-        driver: sqlite3.Database
-    });
-}
+// Creazione delle tabelle necessarie all'avvio
+db.serialize(() => {
+    // Tabella Utenti (con ruolo admin, Ufficio, ecc.)
+    db.run(`CREATE TABLE IF NOT EXISTS utenti (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE,
+        password TEXT,
+        role TEXT
+    )`);
 
-function autenticaToken(req, res, next) {
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
+    // Tabella Prodotti per lo Shop e Magazzino
+    db.run(`CREATE TABLE IF NOT EXISTS prodotti (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nome TEXT,
+        categoria TEXT,
+        prezzo REAL,
+        quantita INTEGER,
+        immagine TEXT,
+        descrizione TEXT
+    )`);
 
-    if (!token) {
-        return res.status(401).json({ error: 'Token mancante' });
-    }
-
-    jwt.verify(token, JWT_SECRET, (err, user) => {
-        if (err) {
-            return res.status(403).json({ error: 'Token non valido' });
+    // Crea automaticamente un account admin di default se non esiste
+    db.get(`SELECT * FROM utenti WHERE username = ?`, ['admin'], async (err, row) => {
+        if (!row) {
+            const hashedPassword = await bcrypt.hash('admin123', 10);
+            db.run(`INSERT INTO utenti (username, password, role) VALUES (?, ?, ?)`, 
+                ['admin', hashedPassword, 'admin'], 
+                (err) => {
+                    if (!err) console.log("Account Admin predefinito creato (admin / admin123)");
+                }
+            );
         }
-        req.user = user;
+    });
+});
+
+// ==========================================
+// MIDDLEWARE DI AUTENTICAZIONE (JWT)
+// ==========================================
+function verifyToken(req, res, next) {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1]; // Formato: "Bearer TOKEN"
+
+    if (!token) return res.status(401).json({ error: "Accesso non autorizzato. Token mancante." });
+
+    jwt.verify(token, SECRET_KEY, (err, user) => {
+        if (err) return res.status(403).json({ error: "Token non valido o scaduto." });
+        req.user = user; // Salva i dati dell'utente (id, username, role) nella richiesta
         next();
     });
 }
 
-io.on('connection', (socket) => {
-    console.log('Client connesso:', socket.id);
-    socket.on('disconnect', () => {
-        console.log('Client disconnesso:', socket.id);
+// ==========================================
+// ROTTE API - AUTENTICAZIONE & UTENTI
+// ==========================================
+
+// Login (Genera il token JWT)
+app.post('/api/login', (req, res) => {
+    const { username, password } = req.body;
+
+    db.get(`SELECT * FROM utenti WHERE username = ?`, [username], async (err, user) => {
+        if (err || !user) {
+            return res.status(400).json({ error: "Credenziali non valide." });
+        }
+
+        const match = await bcrypt.compare(password, user.password);
+        if (!match) {
+            return res.status(400).json({ error: "Credenziali non valide." });
+        }
+
+        // Genera il token valido per 2 ore
+        const token = jwt.sign({ id: user.id, username: user.username, role: user.role }, SECRET_KEY, { expiresIn: '2h' });
+        res.json({ success: true, token, role: user.role });
     });
 });
 
-// LOGIN
-app.post('/api/login', async (req, res) => {
+// Creazione utente "Ufficio" (Consentita SOLO all'Admin autenticato)
+app.post('/api/admin/crea-utente', verifyToken, async (req, res) => {
+    if (req.user.role !== 'admin') {
+        return res.status(403).json({ error: "Accesso negato. Solo l'Admin può creare account Ufficio." });
+    }
+    
+    const { username, password, role } = req.body;
+    
+    if (role !== 'Ufficio') {
+        return res.status(400).json({ error: "Ruolo non valido. Può essere creato solo il ruolo 'Ufficio'." });
+    }
+
     try {
-        const { username, password } = req.body;
-        const db = await getDb();
-        const user = await db.get('SELECT * FROM utenti WHERE username = ?', [username]);
-        
-        if (!user) {
-            return res.status(401).json({ error: 'Credenziali non valide' });
-        }
-
-        let match = (password === user.password);
-        if (!match && user.password && user.password.startsWith('$2')) {
-            match = await bcrypt.compare(password, user.password);
-        }
-
-        if (!match) {
-            return res.status(401).json({ error: 'Credenziali non valide' });
-        }
-
-        const ruoloUtente = user.ruolo || 'Operatore';
-        const token = jwt.sign(
-            { id: user.id, username: user.username, ruolo: ruoloUtente },
-            JWT_SECRET,
-            { expiresIn: '8h' }
-        );
-
-        res.json({ message: 'Login effettuato', token, ruolo: ruoloUtente, username: user.username });
-    } catch (err) {
-        console.error('ERRORE LOGIN:', err);
-        res.status(500).json({ error: 'Errore del server' });
+        const hashedPassword = await bcrypt.hash(password, 10);
+        db.run(`INSERT INTO utenti (username, password, role) VALUES (?, ?, ?)`, [username, hashedPassword, role], function(err) {
+            if (err) {
+                return res.status(500).json({ error: "Errore: nome utente già esistente o database occupato." });
+            }
+            res.json({ success: true, message: "Utente Ufficio creato con successo!" });
+        });
+    } catch (e) {
+        res.status(500).json({ error: "Errore interno del server." });
     }
 });
 
-// ELIMINAZIONE PRODOTTO (SOLO ADMIN)
-app.delete('/api/prodotti/:id', autenticaToken, async (req, res) => {
-    try {
-        const ruolo = req.user.ruolo ? req.user.ruolo.toLowerCase() : '';
-        if (ruolo !== 'admin') {
-            return res.status(403).json({ error: 'Accesso negato: solo gli amministratori possono eliminare i prodotti' });
-        }
+// ==========================================
+// ROTTE API - PRODOTTI & SHOP
+// ==========================================
 
-        const { id } = req.params;
-        const { password } = req.body;
-        const db = await getDb();
+// Ottieni i prodotti in base alla categoria (es: componenti-pc, custom-pc, plc-sistemi)
+app.get('/api/prodotti/:categoria', (req, res) => {
+    const categoria = req.params.categoria;
+    db.all(`SELECT * FROM prodotti WHERE categoria = ?`, [categoria], (err, rows) => {
+        if (err) return res.status(500).json({ error: "Errore durante il recupero dei prodotti." });
+        res.json(rows);
+    });
+});
 
-        const user = await db.get('SELECT password FROM utenti WHERE username = ?', [req.user.username]);
-        if (!user) {
-            return res.status(404).json({ error: 'Utente non trovato' });
-        }
-
-        let match = (password === user.password);
-        if (!match && user.password && user.password.startsWith('$2')) {
-            match = await bcrypt.compare(password, user.password);
-        }
-
-        if (!match) {
-            return res.status(401).json({ error: 'Password errata' });
-        }
-
-        await db.run('DELETE FROM prodotti WHERE id = ?', [id]);
-        io.emit('inventario_aggiornato');
-        res.json({ message: 'Prodotto eliminato' });
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Errore del server' });
+// Aggiungi un nuovo prodotto (Consentito SOLO ad Admin e Ufficio)
+app.post('/api/prodotti', verifyToken, (req, res) => {
+    if (req.user.role !== 'admin' && req.user.role !== 'Ufficio') {
+        return res.status(403).json({ error: "Non hai i permessi necessari per aggiungere prodotti." });
     }
-});
 
-// API CATEGORIE
-app.get('/api/categorie', autenticaToken, async (req, res) => {
-    const db = await getDb();
-    const rows = await db.all('SELECT * FROM categorie');
-    res.json(rows);
-});
-
-app.post('/api/categorie', autenticaToken, async (req, res) => {
-    const ruolo = req.user.ruolo ? req.user.ruolo.toLowerCase() : '';
-    if (ruolo !== 'admin' && ruolo !== 'operatore') {
-        return res.status(403).json({ error: 'Accesso negato' });
-    }
-    const { nome, colore } = req.body;
-    const db = await getDb();
-    await db.run('INSERT INTO categorie (nome, colore) VALUES (?, ?)', [nome, colore]);
-    io.emit('categorie_aggiornate');
-    res.json({ message: 'Categoria creata' });
-});
-
-app.delete('/api/categorie/:id', autenticaToken, async (req, res) => {
-    const ruolo = req.user.ruolo ? req.user.ruolo.toLowerCase() : '';
-    if (ruolo !== 'admin' && ruolo !== 'operatore') {
-        return res.status(403).json({ error: 'Accesso negato' });
-    }
-    const db = await getDb();
-    await db.run('DELETE FROM categorie WHERE id = ?', [req.params.id]);
-    io.emit('categorie_aggiornate');
-    res.json({ message: 'Categoria eliminata' });
-});
-
-// API PRODOTTI
-app.get('/api/prodotti', autenticaToken, async (req, res) => {
-    const db = await getDb();
-    const rows = await db.all('SELECT * FROM prodotti');
-    res.json(rows);
-});
-
-app.post('/api/prodotti', autenticaToken, async (req, res) => {
-    const ruolo = req.user.ruolo ? req.user.ruolo.toLowerCase() : '';
-    if (ruolo === 'visualizzatore' || ruolo === 'addetto scontrini') {
-        return res.status(403).json({ error: 'Accesso negato' });
-    }
-    const { codice_barre, nome, categoria } = req.body;
-    const codiceGenerato = codice_barre || Math.floor(10000000 + Math.random() * 90000000).toString();
-    const db = await getDb();
+    const { nome, categoria, prezzo, quantita, immagine, descrizione } = req.body;
+    const query = `INSERT INTO prodotti (nome, categoria, prezzo, quantita, immagine, descrizione) VALUES (?, ?, ?, ?, ?, ?)`;
     
-    await db.run('INSERT INTO prodotti (codice_barre, nome, categoria, quantita) VALUES (?, ?, ?, 1)', 
-        [codiceGenerato, nome, categoria]);
-    
-    io.emit('inventario_aggiornato');
-    res.json({ message: 'Prodotto salvato', codice_generato: codiceGenerato });
+    db.run(query, [nome, categoria, prezzo, quantita, immagine, descrizione], function(err) {
+        if (err) return res.status(500).json({ error: "Errore nel salvataggio del prodotto nel database." });
+        res.json({ success: true, id: this.lastID, message: "Prodotto aggiunto con successo!" });
+    });
 });
 
-// SIMULATORE PLC
-app.post('/api/plc/scansione', autenticaToken, async (req, res) => {
-    const ruolo = req.user.ruolo ? req.user.ruolo.toLowerCase() : '';
-    if (ruolo === 'visualizzatore' || ruolo === 'addetto scontrini') {
-        return res.status(403).json({ error: 'Accesso negato' });
-    }
-    const { codice_barre } = req.body;
-    const db = await getDb();
-    const prodotto = await db.get('SELECT * FROM prodotti WHERE codice_barre = ?', [codice_barre]);
-    
-    if (prodotto) {
-        await db.run('UPDATE prodotti SET quantita = quantita + 1 WHERE codice_barre = ?', [codice_barre]);
-        io.emit('inventario_aggiornato');
-        res.json({ status: `Aggiornato: ${prodotto.nome} (+1)` });
-    } else {
-        res.status(404).json({ error: 'Codice a barre non trovato in magazzino' });
-    }
+// Gestione Checkout / Ordine (Controlla e scala la quantità di 1 nel database)
+app.post('/api/checkout', (req, res) => {
+    const { prodottoId } = req.body;
+
+    db.get(`SELECT quantita, nome FROM prodotti WHERE id = ?`, [prodottoId], (err, row) => {
+        if (err || !row) return res.status(404).json({ error: "Prodotto non trovato." });
+
+        if (row.quantita <= 0) {
+            return res.status(400).json({ error: `Spiacenti, ${row.nome} è attualmente esaurito!` });
+        }
+
+        // Scala la quantità di 1
+        db.run(`UPDATE prodotti SET quantita = quantita - 1 WHERE id = ?`, [prodottoId], (updateErr) => {
+            if (updateErr) return res.status(500).json({ error: "Errore durante l'aggiornamento dello stock." });
+            res.json({ success: true, message: `Ordine completato per ${row.nome}! Quantità aggiornata nel database centrale.` });
+        });
+    });
 });
 
-// GESTIONE UTENTI (SOLO ADMIN)
-app.get('/api/admin/utenti', autenticaToken, async (req, res) => {
-    const ruolo = req.user.ruolo ? req.user.ruolo.toLowerCase() : '';
-    if (ruolo !== 'admin') {
-        return res.status(403).json({ error: 'Accesso negato' });
-    }
-    const db = await getDb();
-    const rows = await db.all('SELECT id, username, ruolo FROM utenti');
-    res.json(rows);
-});
-
-app.post('/api/admin/crea-utente', autenticaToken, async (req, res) => {
-    const ruolo = req.user.ruolo ? req.user.ruolo.toLowerCase() : '';
-    if (ruolo !== 'admin') {
-        return res.status(403).json({ error: 'Accesso negato' });
-    }
-    const { newUsername, newPassword, ruolo: nuovoRuolo } = req.body;
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-    const db = await getDb();
-    await db.run('INSERT INTO utenti (username, password, ruolo) VALUES (?, ?, ?)', [newUsername, hashedPassword, nuovoRuolo || 'Operatore']);
-    res.json({ message: 'Utente creato' });
-});
-
-app.delete('/api/admin/elimina-utente/:id', autenticaToken, async (req, res) => {
-    const ruolo = req.user.ruolo ? req.user.ruolo.toLowerCase() : '';
-    if (ruolo !== 'admin') {
-        return res.status(403).json({ error: 'Accesso negato' });
-    }
-    const db = await getDb();
-    await db.run('DELETE FROM utenti WHERE id = ?', [req.params.id]);
-    res.json({ message: 'Utente eliminato' });
-});
-
-app.put('/api/admin/cambia-ruolo', autenticaToken, async (req, res) => {
-    const ruolo = req.user.ruolo ? req.user.ruolo.toLowerCase() : '';
-    if (ruolo !== 'admin') {
-        return res.status(403).json({ error: 'Accesso negato' });
-    }
-
-    const { id, nuovoRuolo } = req.body;
-    const db = await getDb();
-    await db.run('UPDATE utenti SET ruolo = ? WHERE id = ?', [nuovoRuolo, id]);
-    res.json({ message: 'Ruolo aggiornato' });
-});
-
-app.put('/api/admin/cambia-password-utente', autenticaToken, async (req, res) => {
-    const ruolo = req.user.ruolo ? req.user.ruolo.toLowerCase() : '';
-    if (ruolo !== 'admin') {
-        return res.status(403).json({ error: 'Accesso negato' });
-    }
-
-    const { id, nuovaPassword } = req.body;
-    const hashed = await bcrypt.hash(nuovaPassword, 10);
-    const db = await getDb();
-    await db.run('UPDATE utenti SET password = ? WHERE id = ?', [hashed, id]);
-    res.json({ message: 'Password utente aggiornata con successo' });
-});
-
-app.post('/api/cambia-password', autenticaToken, async (req, res) => {
-    const { nuovaPassword } = req.body;
-    const hashed = await bcrypt.hash(nuovaPassword, 10);
-    const db = await getDb();
-    await db.run('UPDATE utenti SET password = ? WHERE id = ?', [hashed, req.user.id]);
-    res.json({ message: 'Password aggiornata' });
-});
-
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-    console.log(`Server SQLite attivo su http://localhost:${PORT}`);
+// Avvio del Server
+app.listen(PORT, () => {
+    console.log(`Server avviato e in ascolto sulla porta ${PORT}`);
 });
