@@ -43,12 +43,12 @@
                     <span id="role-badge" class="text-[10px] uppercase font-extrabold px-2 py-0.5 rounded text-white"></span>
                 </div>
                 
-                <!-- PULSANTE SCONTRINI (Per Admin, Operatore e Addetto scontrini) -->
+                <!-- PULSANTE SCONTRINI -->
                 <button id="btn-scontrini-su" onclick="apriModalListaScontrini()" class="hidden text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 rounded-xl font-bold shadow-sm transition flex items-center gap-1">
                     🖨️ Scontrini
                 </button>
 
-                <!-- PULSANTE CATEGORIE (Admin e Operatore) -->
+                <!-- PULSANTE CATEGORIE -->
                 <button id="btn-cat-modal" onclick="apriModalCategorie()" class="hidden text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-2 rounded-xl font-bold shadow-sm transition flex items-center gap-1">
                     🏷️ Categorie
                 </button>
@@ -122,7 +122,7 @@
             </div>
         </div>
 
-        <!-- SEZIONE TOUCH SCREEN SCONTRINI (Visibile SOLO per Addetto scontrini) -->
+        <!-- SEZIONE TOUCH SCREEN SCONTRINI -->
         <div id="box-touch-scontrini" class="hidden bg-white p-6 rounded-2xl shadow-sm border space-y-4">
             <div class="flex items-center justify-between border-b pb-3">
                 <div>
@@ -130,10 +130,7 @@
                     <p class="text-xs text-gray-500">Tocca un articolo per generare e stampare immediatamente lo scontrino ufficiale</p>
                 </div>
             </div>
-            <!-- Griglia di grandi pulsanti touch -->
-            <div id="griglia-scontrini-touch" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                <!-- Generati dinamicamente via JS -->
-            </div>
+            <div id="griglia-scontrini-touch" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4"></div>
         </div>
 
         <!-- Simulatore PLC -->
@@ -146,7 +143,7 @@
         </div>
     </div>
 
-    <!-- MODALE LISTA SCONTRINI PER ADMIN E OPERATORE -->
+    <!-- MODALE LISTA SCONTRINI -->
     <div id="modal-lista-scontrini" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-40">
         <div class="bg-white rounded-2xl p-6 w-full max-w-lg shadow-2xl space-y-4">
             <div class="flex justify-between items-center border-b pb-3">
@@ -165,7 +162,7 @@
         </div>
     </div>
 
-    <!-- MODALE ANTEPRIMA SCONTRINO GRANDE PER TOUCH -->
+    <!-- MODALE ANTEPRIMA SCONTRINO -->
     <div id="modal-anteprima-scontrino" class="hidden fixed inset-0 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
         <div class="bg-white rounded-3xl p-8 w-full max-w-md shadow-2xl space-y-6 text-center border">
             <h3 class="font-bold text-slate-800 text-lg">Anteprima Scontrino Pronto</h3>
@@ -236,7 +233,7 @@
         </div>
     </div>
 
-    <!-- MODAL UTENTI -->
+    <!-- MODAL UTENTI (Aggiornato con il supporto al ruolo Ufficio) -->
     <div id="modal-admin" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-40">
         <div class="bg-white rounded-2xl p-6 w-full max-w-lg shadow-2xl space-y-4">
             <div class="flex justify-between items-center border-b pb-3">
@@ -263,6 +260,7 @@
                         <option value="Operatore">Operatore</option>
                         <option value="Visualizzatore">Visualizzatore</option>
                         <option value="Addetto scontrini">Addetto scontrini</option>
+                        <option value="Ufficio">Ufficio</option>
                         <option value="Admin">Admin</option>
                     </select>
                 </div>
@@ -346,7 +344,8 @@
     <script>
         const username = localStorage.getItem('username') || 'Utente';
         const ruoloRaw = localStorage.getItem('ruolo') || 'Operatore';
-        const ruolo = ruoloRaw.charAt(0).toUpperCase() + ruoloRaw.slice(1).toLowerCase();
+        // Gestione corretta del ruolo Ufficio con la U maiuscola e il resto in minuscolo
+        const ruolo = ruoloRaw === 'Ufficio' ? 'Ufficio' : (ruoloRaw.charAt(0).toUpperCase() + ruoloRaw.slice(1).toLowerCase());
         
         let listaCategorie = [];
         let listaProdottiGlobal = [];
@@ -366,11 +365,10 @@
             document.getElementById('box-inventario').classList.add('lg:col-span-3');
             document.getElementById('btn-admin-modal').classList.add('hidden');
             document.getElementById('btn-cat-modal').classList.add('hidden');
-            document.getElementById('btn-scontrini-su').classList.add('hidden'); // Visualizzatore non ha il tasto scontrini in alto
+            document.getElementById('btn-scontrini-su').classList.add('hidden');
             document.getElementById('th-azione-prodotti').classList.add('hidden');
             badgeElem.classList.add('bg-slate-500');
         } else if (ruolo === 'Addetto scontrini') {
-            // L'Addetto scontrini mantiene la sua postazione touch dedicata in basso e non ha bisogno del pulsante in alto
             document.getElementById('box-creazione').classList.add('hidden');
             document.getElementById('box-simulatore').classList.add('hidden');
             document.getElementById('box-inventario').classList.remove('lg:col-span-2');
@@ -381,12 +379,21 @@
             document.getElementById('box-touch-scontrini').classList.remove('hidden'); 
             document.getElementById('th-azione-prodotti').classList.add('hidden');
             badgeElem.classList.add('bg-emerald-600');
+        } else if (ruolo === 'Ufficio') {
+            // L'utente Ufficio può creare prodotti e gestire le categorie per lo shop
+            document.getElementById('box-creazione').classList.remove('hidden');
+            document.getElementById('box-simulatore').classList.add('hidden');
+            document.getElementById('btn-cat-modal').classList.remove('hidden');
+            document.getElementById('btn-admin-modal').classList.add('hidden');
+            document.getElementById('btn-scontrini-su').classList.remove('hidden');
+            document.getElementById('th-azione-prodotti').classList.add('hidden');
+            badgeElem.classList.add('bg-purple-600');
         } else if (ruolo === 'Operatore') {
             document.getElementById('box-creazione').classList.remove('hidden');
             document.getElementById('box-simulatore').classList.remove('hidden');
             document.getElementById('btn-cat-modal').classList.remove('hidden');
             document.getElementById('btn-admin-modal').classList.add('hidden');
-            document.getElementById('btn-scontrini-su').classList.remove('hidden'); // Operatore vede il pulsante scontrini in alto
+            document.getElementById('btn-scontrini-su').classList.remove('hidden');
             document.getElementById('th-azione-prodotti').classList.add('hidden');
             badgeElem.classList.add('bg-blue-600');
         } else if (ruolo === 'Admin') {
@@ -395,7 +402,7 @@
             badgeElem.classList.add('bg-amber-500');
             document.getElementById('btn-admin-modal').classList.remove('hidden');
             document.getElementById('btn-cat-modal').classList.remove('hidden');
-            document.getElementById('btn-scontrini-su').classList.remove('hidden'); // Admin vede il pulsante scontrini in alto
+            document.getElementById('btn-scontrini-su').classList.remove('hidden');
         }
 
         const socket = io();
@@ -532,7 +539,7 @@
             if(!tbody) return;
             tbody.innerHTML = '';
             listaCategorie.forEach(c => {
-                let btnCatDel = (ruolo === 'Admin' || ruolo === 'Operatore') ? `<button onclick="eliminaCategoria(${c.id})" class="bg-red-100 text-red-600 hover:bg-red-200 px-2.5 py-1 rounded font-bold text-[10px]">Elimina</button>` : '';
+                let btnCatDel = (ruolo === 'Admin' || ruolo === 'Operatore' || ruolo === 'Ufficio') ? `<button onclick="eliminaCategoria(${c.id})" class="bg-red-100 text-red-600 hover:bg-red-200 px-2.5 py-1 rounded font-bold text-[10px]">Elimina</button>` : '';
                 tbody.innerHTML += `
                     <tr class="border-b hover:bg-gray-50">
                         <td class="p-2"><span class="w-4 h-4 rounded-full inline-block align-middle border" style="background-color: ${c.colore};"></span></td>
@@ -557,7 +564,7 @@
         }
 
         async function eliminaCategoria(id) {
-            if (ruolo !== 'Admin' && ruolo !== 'Operatore') return;
+            if (ruolo !== 'Admin' && ruolo !== 'Operatore' && ruolo !== 'Ufficio') return;
             await fetch(`/api/categorie/${id}`, { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') } });
             mostraNotifica('Categoria eliminata!');
             caricaCategorie();
@@ -744,7 +751,7 @@
                     let azionariato = '';
 
                     const uRuoloRaw = u.ruolo || 'Operatore';
-                    const uRuolo = uRuoloRaw.charAt(0).toUpperCase() + uRuoloRaw.slice(1).toLowerCase();
+                    const uRuolo = uRuoloRaw === 'Ufficio' ? 'Ufficio' : (uRuoloRaw.charAt(0).toUpperCase() + uRuoloRaw.slice(1).toLowerCase());
 
                     if (u.username.toLowerCase() === 'admin') {
                         selectRuolo = `<span class="text-xs font-bold text-slate-700">Admin (Protetto)</span>`;
@@ -755,6 +762,7 @@
                                 <option value="Visualizzatore" ${uRuolo === 'Visualizzatore' ? 'selected' : ''}>Visualizzatore</option>
                                 <option value="Operatore" ${uRuolo === 'Operatore' ? 'selected' : ''}>Operatore</option>
                                 <option value="Addetto scontrini" ${uRuolo === 'Addetto scontrini' ? 'selected' : ''}>Addetto scontrini</option>
+                                <option value="Ufficio" ${uRuolo === 'Ufficio' ? 'selected' : ''}>Ufficio</option>
                                 <option value="Admin" ${uRuolo === 'Admin' ? 'selected' : ''}>Admin</option>
                             </select>
                         `;
