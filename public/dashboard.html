@@ -826,5 +826,18 @@
         socket.on('categorie_aggiornate', caricaCategorie);
         caricaCategorie();
     </script>
+    <script>
+    // Se non c'è il token, reindirizza immediatamente
+    if (!localStorage.getItem('token')) {
+        window.location.replace('/login.html');
+    }
+
+    // Impedisce al browser di ricaricare la pagina dalla cache quando si preme "Indietro"
+    window.addEventListener('pageshow', function(event) {
+        if (event.persisted || performance.getEntriesByType("navigation")[0].type === "back_forward") {
+            window.location.replace('/login.html');
+        }
+    });
+</script>
 </body>
 </html>

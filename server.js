@@ -256,3 +256,28 @@ app.post('/api/plc/scansione', verifyToken, (req, res) => {
 server.listen(PORT, () => {
     console.log(`Server avviato e in ascolto sulla porta ${PORT}`);
 });
+// Aggiunta prodotto per lo Shop (consentito ad Admin e Ufficio)
+app.post('/api/prodotti', verifyToken, (req, res) => {
+    if (req.user.ruolo !== 'Admin' && req.user.role !== 'admin' && req.user.ruolo !== 'Ufficio' && req.user.role !== 'Ufficio') {
+        return res.status(403).json({ error: "Non hai i permessi necessari per aggiungere prodotti." });
+    }
+
+    const { codice_barre, nome, categoria, prezzo, quantita, immagine, descrizione } = req.body;
+    const codiceGenerato = codice_barre || Math.floor(10000000 + Math.random() * 90000000).toString();
+    const qty = quantita || 1;
+
+    db.run(`INSERT INTO prodotti (codice_barre, nome, categoria, quantita, prezzo, immagine, descrizione) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [codiceGenerato, nome, categoria || 'Componenti PC & Schede Madri', qty, prezzo || 0, immagine || '', descrizione || ''], function(err) {
+        if (err) return res.status(500).json({ error: "Errore nel salvataggio del prodotto." });
+        io.emit('inventario_aggiornato');
+        res.json({ success: true, id: this.lastID, codice_generato: codiceGenerato });
+    });
+});
+
+// Blocco modifiche categorie per il ruolo Ufficio
+app.post('/api/categorie', verifyToken, (req, res) => {
+    if (req.user.ruolo !== 'Admin' && req.user.role !== 'admin') {
+        return res.status(403).json({ error: "Solo l'Admin può creare o modificare le categorie." });
+    }
+    // ... resto del codice categorie ...
+});
