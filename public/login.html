@@ -37,7 +37,7 @@
     <script>
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const username = document.getElementById('username').value;
+            const usernameInput = document.getElementById('username').value;
             const password = document.getElementById('password').value;
             const errorDiv = document.getElementById('error-msg');
             errorDiv.textContent = '';
@@ -46,15 +46,16 @@
                 const res = await fetch('/api/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, password })
+                    body: JSON.stringify({ username: usernameInput, password })
                 });
 
                 const data = await res.json();
 
                 if (res.ok) {
+                    // Salvataggio corretto di token, ruolo e username nel localStorage
                     localStorage.setItem('token', data.token);
-                    localStorage.setItem('ruolo', data.ruolo);
-                    localStorage.setItem('username', data.username);
+                    localStorage.setItem('ruolo', data.role || data.ruolo);
+                    localStorage.setItem('username', usernameInput);
                     window.location.href = '/dashboard.html';
                 } else {
                     errorDiv.textContent = data.error || 'Credenziali non valide';

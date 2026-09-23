@@ -233,7 +233,7 @@
         </div>
     </div>
 
-    <!-- MODAL UTENTI (Aggiornato con il supporto al ruolo Ufficio) -->
+    <!-- MODAL UTENTI -->
     <div id="modal-admin" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-40">
         <div class="bg-white rounded-2xl p-6 w-full max-w-lg shadow-2xl space-y-4">
             <div class="flex justify-between items-center border-b pb-3">
@@ -342,9 +342,8 @@
     </div>
 
     <script>
-        const username = localStorage.getItem('username') || 'Utente';
-        const ruoloRaw = localStorage.getItem('ruolo') || 'Operatore';
-        // Gestione corretta del ruolo Ufficio con la U maiuscola e il resto in minuscolo
+        const username = localStorage.getItem('username') || localStorage.getItem('user') || 'Utente';
+        const ruoloRaw = localStorage.getItem('ruolo') || localStorage.getItem('role') || 'Operatore';
         const ruolo = ruoloRaw === 'Ufficio' ? 'Ufficio' : (ruoloRaw.charAt(0).toUpperCase() + ruoloRaw.slice(1).toLowerCase());
         
         let listaCategorie = [];
@@ -380,7 +379,6 @@
             document.getElementById('th-azione-prodotti').classList.add('hidden');
             badgeElem.classList.add('bg-emerald-600');
         } else if (ruolo === 'Ufficio') {
-            // L'utente Ufficio può creare prodotti e gestire le categorie per lo shop
             document.getElementById('box-creazione').classList.remove('hidden');
             document.getElementById('box-simulatore').classList.add('hidden');
             document.getElementById('btn-cat-modal').classList.remove('hidden');
