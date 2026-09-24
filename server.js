@@ -225,6 +225,7 @@ app.post('/api/prodotti', verifyToken, (req, res) => {
     const { prodotto_id, codice_barre, nome, categoria, prezzo, quantita, immagine, descrizione } = req.body;
     const qtyInput = parseInt(quantita) || 1;
 
+    // Se si sta creando un annuncio a partire da un prodotto del magazzino
     if (prodotto_id) {
         db.get(`SELECT * FROM prodotti WHERE id = ?`, [prodotto_id], (err, dbProd) => {
             if (err || !dbProd) return res.status(400).json({ error: "Prodotto selezionato non trovato nel database." });
@@ -233,51 +234,25 @@ app.post('/api/prodotti', verifyToken, (req, res) => {
                 return res.status(400).json({ error: `Quantità non valida! Disponibile a magazzino nel database: ${dbProd.quantita}` });
             }
 
-            db.run(`UPDATE prodotti SET categoria = ?, quantita = ?, prezzo = ?, immagine = ?, descrizione = ?, prodotto_padre_id = ? WHERE id = ?`,
-                [categoria, qtyInput, prezzo || 0, immagine || '', descrizione || '', dbProd.id, prodotto_id], function(err) {
-                if (err) return res.status(500).json({ error: "Errore nell'aggiornamento dell'annuncio." });
+            // CREA UN NUOVO RECORD SEPARATO PER L'ANNUNCIO (senza intaccare la quantità del magazzino reale)
+            const codiceAnnuncio = 'ANN-' + Math.floor(10000000 + Math.random() * 90000000);
+            db.run(`INSERT INTO prodotti (codice_barre, nome, categoria, quantita, prezzo, immagine, descrizione, prodotto_padre_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                [codiceAnnuncio, dbProd.nome, categoria || dbProd.categoria, qtyInput, prezzo || 0, immagine || '', descrizione || '', dbProd.id], function(err) {
+                if (err) return res.status(500).json({ error: "Errore nella creazione dell'annuncio." });
                 io.emit('inventario_aggiornato');
-                res.json({ success: true, id: prodotto_id });
+                res.json({ success: true, id: this.lastID });
             });
         });
     } else {
+        // Creazione normale prodotto in inventario magazzino
         const codiceGenerato = codice_barre || Math.floor(10000000 + Math.random() * 90000000).toString();
         db.run(`INSERT INTO prodotti (codice_barre, nome, categoria, quantita, prezzo, immagine, descrizione) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            [codiceGenerato, nome, categoria || 'Componenti PC & Schede Madri', qtyInput, prezzo || 0, immagine || '', descrizione || ''], function(err) {
+            [codiceGenerato, nome, categoria || 'Generico', qtyInput, 0, '', ''], function(err) {
             if (err) return res.status(500).json({ error: "Errore nel salvataggio del prodotto." });
             io.emit('inventario_aggiornato');
             res.json({ success: true, id: this.lastID, codice_generato: codiceGenerato });
         });
     }
-});
-
-// Endpoint specifico per pubblicazione Annunci targati su target page
-app.post('/api/annunci', verifyToken, (req, res) => {
-    if (req.user.ruolo !== 'Admin' && req.user.role !== 'admin' && req.user.ruolo !== 'Ufficio' && req.user.role !== 'Ufficio') {
-        return res.status(403).json({ error: "Non hai i permessi necessari." });
-    }
-
-    const { prodottoId, categoria, prezzo, urlImmagine, descrizione } = req.body;
-
-    let targetPage = 'index.html';
-    switch (categoria) {
-        case 'componenti-pc':
-            targetPage = 'componenti-pc.html';
-            break;
-        case 'custom-pc':
-            targetPage = 'assemblaggio-custom-pc.html';
-            break;
-        case 'sistemi-plc':
-            targetPage = 'sistemi-plc.html';
-            break;
-    }
-
-    db.run(`UPDATE prodotti SET categoria = ?, prezzo = ?, immagine = ?, descrizione = ? WHERE id = ?`,
-        [categoria, prezzo || 0, urlImmagine || '', descrizione || '', prodottoId], function(err) {
-            if (err) return res.status(500).json({ error: "Errore durante il salvataggio dell'annuncio." });
-            io.emit('inventario_aggiornato');
-            res.json({ success: true, message: `Annuncio pubblicato con successo per ${targetPage}` });
-        });
 });
 
 // MODIFICA ANNUNCIO / PRODOTTO
@@ -339,8 +314,15 @@ app.post('/api/checkout', (req, res) => {
         if (err || !prod) return res.status(404).json({ success: false, error: "Prodotto non trovato." });
         if (prod.quantita <= 0) return res.status(400).json({ success: false, error: "Prodotto esaurito." });
 
+        // Scala 1 dall'annuncio
         db.run(`UPDATE prodotti SET quantita = quantita - 1 WHERE id = ?`, [prodottoId], (updateErr) => {
             if (updateErr) return res.status(500).json({ success: false, error: "Errore durante l'ordine." });
+            
+            // Se collegato a un prodotto padre in magazzino, scala 1 anche dal magazzino
+            if (prod.prodotto_padre_id) {
+                db.run(`UPDATE prodotti SET quantita = MAX(0, quantita - 1) WHERE id = ?`, [prod.prodotto_padre_id]);
+            }
+
             io.emit('inventario_aggiornato');
             res.json({ success: true, message: `Ordine effettuato con successo per ${prod.nome}!` });
         });
@@ -360,13 +342,13 @@ app.post('/api/plc/scansione', verifyToken, (req, res) => {
     });
 });
 
-// Endpoint per registrare l'acquisto di un annuncio e scalare la giacenza
+// Endpoint per registrare l'acquisto di un annuncio e scalare sia l'annuncio sia la giacenza magazzino
 app.post('/api/prodotti/acquista/:id', verifyToken, (req, res) => {
     const annuncioId = req.params.id;
 
     db.get('SELECT * FROM prodotti WHERE id = ?', [annuncioId], (err, item) => {
         if (err || !item) return res.status(404).json({ error: 'Annuncio non trovato' });
-        if (item.quantita <= 0) return res.status(400).json({ error: 'Quantità esaurita nello shop' });
+        if (item.quantita <= 0) return res.status(400).json({ error: 'Quantità esaurita (Sold Out)' });
 
         // 1. Riduci la quantità dell'annuncio di 1
         db.run('UPDATE prodotti SET quantita = quantita - 1 WHERE id = ?', [annuncioId], (updateErr) => {
