@@ -2,6 +2,7 @@
 <html lang="it">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard Inventario PLC</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="/socket.io/socket.io.js"></script>
@@ -19,7 +20,7 @@
 
     <div class="max-w-6xl mx-auto space-y-6">
         
-        <!-- Header Solito PLC -->
+        <!-- Header -->
         <div class="flex justify-between items-center bg-white p-5 rounded-2xl shadow-sm border border-gray-200">
             <div class="flex items-center gap-3">
                 <div class="p-3 bg-blue-100 text-blue-600 rounded-xl text-xl">📦</div>
@@ -92,7 +93,7 @@
                 </div>
             </div>
 
-            <!-- Tabella Inventario Magazzino Reale -->
+            <!-- Tabella Inventario Magazzino -->
             <div id="box-inventario" class="lg:col-span-2 bg-white rounded-2xl shadow-sm border overflow-hidden">
                 <div class="p-4 bg-slate-800 text-white font-bold text-sm flex justify-between items-center">
                     <span>Inventario Magazzino</span>
@@ -113,9 +114,8 @@
             </div>
         </div>
 
-        <!-- SEZIONE PUBBLICAZIONI ANNUNCI SHOP (VISIBILE AD UFFICIO E ADMIN DIRETTAMENTE NELLA STESSA PAGINA) -->
+        <!-- SEZIONE PUBBLICAZIONI ANNUNCI SHOP -->
         <div id="box-gestione-shop-integrata" class="hidden space-y-6 pt-4 border-t border-slate-300">
-            
             <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
                 <div class="border-b border-slate-100 pb-3">
                     <h2 class="font-bold text-slate-900 text-base flex items-center gap-2">
@@ -190,7 +190,6 @@
                     </table>
                 </div>
             </div>
-
         </div>
 
         <!-- Simulatore PLC -->
@@ -203,7 +202,7 @@
         </div>
     </div>
 
-    <!-- Modali vari (Password, Admin, Categorie, ecc.) -->
+    <!-- MODALE MODIFICA PASSWORD -->
     <div id="modal-pass" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-40">
         <div class="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl space-y-4">
             <div class="flex justify-between items-center border-b pb-3">
@@ -220,6 +219,54 @@
         </div>
     </div>
 
+    <!-- MODALE GESTIONE CATEGORIE -->
+    <div id="modal-categorie" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-40">
+        <div class="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl space-y-4">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 class="font-bold text-slate-800 text-sm">🏷️ Gestione Categorie</h3>
+                <button onclick="chiudiModalCategorie()" class="text-gray-400 hover:text-gray-600 font-bold text-lg">✕</button>
+            </div>
+            <form onsubmit="creaCategoria(event)" class="flex gap-2">
+                <input id="cat-nome" type="text" placeholder="Nome Categoria" required class="w-full border p-2 rounded-lg text-xs outline-none focus:ring-2 focus:ring-indigo-500">
+                <input id="cat-colore" type="color" value="#3b82f6" class="w-10 h-9 p-1 border rounded-lg cursor-pointer">
+                <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-4 rounded-lg font-bold transition">Aggiungi</button>
+            </form>
+            <div class="max-h-60 overflow-y-auto border rounded-xl divide-y text-xs" id="lista-categorie-modal"></div>
+        </div>
+    </div>
+
+    <!-- MODALE GESTIONE UTENTI (ADMIN) -->
+    <div id="modal-utenti" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-40">
+        <div class="bg-white rounded-2xl p-6 w-full max-w-lg shadow-2xl space-y-4">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 class="font-bold text-slate-800 text-sm">👥 Gestione Utenti</h3>
+                <button onclick="chiudiModalUtenti()" class="text-gray-400 hover:text-gray-600 font-bold text-lg">✕</button>
+            </div>
+            <form onsubmit="creaUtenteAdmin(event)" class="grid grid-cols-3 gap-2">
+                <input id="u-nome" type="text" placeholder="Username" required class="border p-2 rounded-lg text-xs">
+                <input id="u-pass" type="password" placeholder="Password" required class="border p-2 rounded-lg text-xs">
+                <select id="u-ruolo" class="border p-2 rounded-lg text-xs font-semibold">
+                    <option value="Operatore">Operatore</option>
+                    <option value="Ufficio">Ufficio</option>
+                    <option value="Admin">Admin</option>
+                </select>
+                <button type="submit" class="col-span-3 bg-amber-500 hover:bg-amber-600 text-white text-xs py-2 rounded-lg font-bold transition">Crea Utente</button>
+            </form>
+            <div class="max-h-60 overflow-y-auto border rounded-xl divide-y text-xs" id="lista-utenti-modal"></div>
+        </div>
+    </div>
+
+    <!-- MODALE SCONTRINI -->
+    <div id="modal-scontrini" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-40">
+        <div class="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl space-y-4">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 class="font-bold text-slate-800 text-sm">🖨️ Gestione Scontrini</h3>
+                <button onclick="chiudiModalScontrini()" class="text-gray-400 hover:text-gray-600 font-bold text-lg">✕</button>
+            </div>
+            <p class="text-xs text-gray-500">Nessuno scontrino in attesa di stampa.</p>
+        </div>
+    </div>
+
     <script>
         const username = localStorage.getItem('username') || localStorage.getItem('user') || 'Utente';
         const ruoloRaw = localStorage.getItem('ruolo') || localStorage.getItem('role') || 'Operatore';
@@ -232,7 +279,6 @@
         const badgeElem = document.getElementById('role-badge');
         badgeElem.textContent = ruolo;
 
-        // Gestione layout per RUOLO UFFICIO
         if (ruolo === 'Ufficio') {
             document.getElementById('box-creazione').classList.add('hidden');
             document.getElementById('box-simulatore').classList.add('hidden');
@@ -274,55 +320,250 @@
             window.location.replace('/login.html');
         }
 
+        // --- GESTIONE MODALI ---
         function apriModalPass() { document.getElementById('input-nuova-pass').value = ''; document.getElementById('modal-pass').classList.remove('hidden'); }
         function chiudiModalPass() { document.getElementById('modal-pass').classList.add('hidden'); }
 
+        function apriModalCategorie() { caricaCategorie(); document.getElementById('modal-categorie').classList.remove('hidden'); }
+        function chiudiModalCategorie() { document.getElementById('modal-categorie').classList.add('hidden'); }
+
+        function apriModalUtenti() { caricaUtentiAdmin(); document.getElementById('modal-utenti').classList.remove('hidden'); }
+        function chiudiModalUtenti() { document.getElementById('modal-utenti').classList.add('hidden'); }
+
+        function apriModalListaScontrini() { document.getElementById('modal-scontrini').classList.remove('hidden'); }
+        function chiudiModalScontrini() { document.getElementById('modal-scontrini').classList.add('hidden'); }
+
+        // --- OPERAZIONI CATEGORIE ---
+        async function caricaCategorie() {
+            const res = await fetch('/api/categorie', { headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') } });
+            if (res.ok) {
+                listaCategorie = await res.json();
+                
+                // Aggiorna Select nel form Creazione Prodotto
+                const selectCat = document.getElementById('p-cat');
+                if (selectCat) {
+                    selectCat.innerHTML = '';
+                    listaCategorie.forEach(c => {
+                        selectCat.innerHTML += `<option value="${c.nome}">${c.nome}</option>`;
+                    });
+                }
+
+                // Aggiorna Lista nel Modale Categorie
+                const listModal = document.getElementById('lista-categorie-modal');
+                if (listModal) {
+                    listModal.innerHTML = '';
+                    listaCategorie.forEach(c => {
+                        listModal.innerHTML += `
+                            <div class="p-2.5 flex justify-between items-center">
+                                <div class="flex items-center gap-2">
+                                    <span class="w-3 h-3 rounded-full" style="background-color: ${c.colore}"></span>
+                                    <span class="font-semibold text-slate-700">${c.nome}</span>
+                                </div>
+                                <button onclick="eliminaCategoria(${c.id})" class="text-red-500 hover:text-red-700 font-bold">🗑️</button>
+                            </div>
+                        `;
+                    });
+                }
+            }
+        }
+
+        async function creaCategoria(e) {
+            e.preventDefault();
+            const nome = document.getElementById('cat-nome').value;
+            const colore = document.getElementById('cat-colore').value;
+
+            const res = await fetch('/api/categorie', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('token') },
+                body: JSON.stringify({ nome, colore })
+            });
+
+            if (res.ok) {
+                document.getElementById('cat-nome').value = '';
+                mostraNotifica('Categoria creata!');
+                caricaCategorie();
+            } else {
+                const err = await res.json();
+                mostraNotifica(err.error || 'Errore creazione categoria', 'error');
+            }
+        }
+
+        async function eliminaCategoria(id) {
+            if (!confirm('Eliminare questa categoria?')) return;
+            const res = await fetch(`/api/categorie/${id}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+            });
+            if (res.ok) {
+                mostraNotifica('Categoria eliminata!');
+                caricaCategorie();
+            }
+        }
+
+        // --- OPERAZIONI UTENTI (ADMIN) ---
+        async function caricaUtentiAdmin() {
+            const res = await fetch('/api/admin/utenti', { headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') } });
+            if (res.ok) {
+                const utenti = await res.json();
+                const listModal = document.getElementById('lista-utenti-modal');
+                listModal.innerHTML = '';
+                utenti.forEach(u => {
+                    listModal.innerHTML += `
+                        <div class="p-2.5 flex justify-between items-center">
+                            <div>
+                                <span class="font-bold text-slate-800">${u.username}</span>
+                                <span class="ml-2 text-[10px] px-2 py-0.5 bg-slate-200 text-slate-700 rounded font-extrabold uppercase">${u.ruolo}</span>
+                            </div>
+                            ${u.username !== 'admin' ? `<button onclick="eliminaUtente(${u.id})" class="text-red-500 hover:text-red-700 font-bold">🗑️</button>` : ''}
+                        </div>
+                    `;
+                });
+            }
+        }
+
+        async function creaUtenteAdmin(e) {
+            e.preventDefault();
+            const newUsername = document.getElementById('u-nome').value;
+            const newPassword = document.getElementById('u-pass').value;
+            const ruolo = document.getElementById('u-ruolo').value;
+
+            const res = await fetch('/api/admin/crea-utente', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('token') },
+                body: JSON.stringify({ newUsername, newPassword, ruolo })
+            });
+
+            if (res.ok) {
+                document.getElementById('u-nome').value = '';
+                document.getElementById('u-pass').value = '';
+                mostraNotifica('Utente creato con successo!');
+                caricaUtentiAdmin();
+            } else {
+                const err = await res.json();
+                mostraNotifica(err.error || 'Errore creazione utente', 'error');
+            }
+        }
+
+        async function eliminaUtente(id) {
+            if (!confirm('Eliminare questo utente?')) return;
+            const res = await fetch(`/api/admin/elimina-utente/${id}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+            });
+            if (res.ok) {
+                mostraNotifica('Utente eliminato!');
+                caricaUtentiAdmin();
+            }
+        }
+
+        // --- CREAZIONE PRODOTTI MAGAZZINO ---
+        function generaCodice() {
+            document.getElementById('p-codice').value = Math.floor(10000000 + Math.random() * 90000000).toString();
+        }
+
+        async function creaProdotto(e) {
+            e.preventDefault();
+            const nome = document.getElementById('p-nome').value;
+            const categoria = document.getElementById('p-cat').value;
+            const codice_barre = document.getElementById('p-codice').value;
+
+            const res = await fetch('/api/prodotti', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('token') },
+                body: JSON.stringify({ nome, categoria, codice_barre })
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                mostraNotifica('Prodotto salvato!');
+                
+                // Mostra Etichetta Barcode
+                document.getElementById('e-categoria').textContent = categoria;
+                document.getElementById('e-nome').textContent = nome;
+                JsBarcode("#barcode", data.codice_generato || codice_barre, { format: "CODE128", width: 1.5, height: 40, displayValue: true });
+                document.getElementById('box-etichetta').classList.remove('hidden');
+
+                document.getElementById('p-nome').value = '';
+                document.getElementById('p-codice').value = '';
+                caricaProdotti();
+            } else {
+                const err = await res.json();
+                mostraNotifica(err.error || 'Errore durante la creazione del prodotto', 'error');
+            }
+        }
+
+        // --- CARICAMENTO PRODOTTI & SHOP ---
         async function caricaProdotti() {
             const res = await fetch('/api/prodotti', { headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') } });
             if (res.status === 401 || res.status === 403) logout();
-            listaProdottiGlobal = await res.json();
             
-            // Renderizza Inventario Magazzino
-            const tbody = document.getElementById('tabella-prodotti');
-            tbody.innerHTML = '';
-            
-            // Popola anche la select dello Shop
-            const selectShop = document.getElementById('select-prodotto-shop');
-            if (selectShop) selectShop.innerHTML = '<option value="">-- Seleziona Prodotto --</option>';
+            if (res.ok) {
+                listaProdottiGlobal = await res.json();
+                
+                const tbody = document.getElementById('tabella-prodotti');
+                tbody.innerHTML = '';
+                
+                const selectShop = document.getElementById('select-prodotto-shop');
+                if (selectShop) selectShop.innerHTML = '<option value="">-- Seleziona Prodotto --</option>';
 
-            const tbodyShop = document.getElementById('lista-annunci-body');
-            if (tbodyShop) tbodyShop.innerHTML = '';
+                const tbodyShop = document.getElementById('lista-annunci-body');
+                if (tbodyShop) tbodyShop.innerHTML = '';
 
-            listaProdottiGlobal.forEach(p => {
-                tbody.innerHTML += `
-                    <tr class="hover:bg-gray-50 border-b">
-                        <td class="p-3 font-mono font-semibold text-gray-600">${p.codice_barre}</td>
-                        <td class="p-3 font-semibold text-slate-800">${p.nome}</td>
-                        <td class="p-3"><span class="bg-slate-600 text-white px-2 py-0.5 rounded text-[10px] font-bold">${p.categoria || 'Generico'}</span></td>
-                        <td class="p-3 text-center"><span class="bg-blue-100 text-blue-800 px-2.5 py-1 rounded-full font-bold text-xs">${p.quantita}</span></td>
-                        <td class="p-3 text-right"></td>
-                    </tr>
-                `;
-
-                if (selectShop) {
-                    selectShop.innerHTML += `<option value="${p.id}">${p.nome} (Cod: ${p.codice_barre})</option>`;
-                }
-
-                if (tbodyShop && p.pubblicato_shop === 1) {
-                    const isSoldOut = p.quantita <= 0;
-                    tbodyShop.innerHTML += `
-                        <tr class="hover:bg-purple-800/40 transition">
-                            <td class="p-3 font-semibold text-white">${p.nome}</td>
-                            <td class="p-3"><span class="px-2 py-1 bg-purple-800 text-purple-200 rounded text-[10px] font-semibold">${p.categoria_shop || p.categoria}</span></td>
-                            <td class="p-3 text-emerald-400 font-bold">${(p.prezzo || 0).toFixed(2)} €</td>
-                            <td class="p-3"><span class="px-2.5 py-1 rounded-full text-[10px] font-bold ${isSoldOut ? 'bg-red-500 text-white' : 'bg-purple-700 text-purple-100'}">${isSoldOut ? 'SOLD OUT' : p.quantita + ' disponibili'}</span></td>
+                listaProdottiGlobal.forEach(p => {
+                    // Tabella Magazzino Reale
+                    tbody.innerHTML += `
+                        <tr class="hover:bg-gray-50 border-b">
+                            <td class="p-3 font-mono font-semibold text-gray-600">${p.codice_barre}</td>
+                            <td class="p-3 font-semibold text-slate-800">${p.nome}</td>
+                            <td class="p-3"><span class="bg-slate-600 text-white px-2 py-0.5 rounded text-[10px] font-bold">${p.categoria || 'Generico'}</span></td>
+                            <td class="p-3 text-center"><span class="bg-blue-100 text-blue-800 px-2.5 py-1 rounded-full font-bold text-xs">${p.quantita}</span></td>
                             <td class="p-3 text-right">
-                                <button onclick="rimuoviAnnuncio(${p.id})" class="px-3 py-1 bg-red-600/80 hover:bg-red-600 text-white rounded text-xs transition">Elimina</button>
+                                ${ruolo === 'Admin' ? `<button onclick="eliminaProdottoMagazzino(${p.id})" class="text-red-500 hover:text-red-700 font-bold">🗑️</button>` : ''}
                             </td>
                         </tr>
                     `;
-                }
+
+                    // Popola Select Form Shop
+                    if (selectShop) {
+                        selectShop.innerHTML += `<option value="${p.id}">${p.nome} (Cod: ${p.codice_barre})</option>`;
+                    }
+
+                    // Popola Tabella Annunci Shop Attivi
+                    if (tbodyShop && p.pubblicato_shop === 1) {
+                        const isSoldOut = p.quantita <= 0;
+                        tbodyShop.innerHTML += `
+                            <tr class="hover:bg-purple-800/40 transition border-b border-purple-800/50">
+                                <td class="p-3 font-semibold text-white">${p.nome}</td>
+                                <td class="p-3"><span class="px-2 py-1 bg-purple-800 text-purple-200 rounded text-[10px] font-semibold">${p.categoria_shop || p.categoria}</span></td>
+                                <td class="p-3 text-emerald-400 font-bold">${(p.prezzo || 0).toFixed(2)} €</td>
+                                <td class="p-3"><span class="px-2.5 py-1 rounded-full text-[10px] font-bold ${isSoldOut ? 'bg-red-500 text-white' : 'bg-purple-700 text-purple-100'}">${isSoldOut ? 'SOLD OUT' : p.quantita + ' disponibili'}</span></td>
+                                <td class="p-3 text-right">
+                                    <button onclick="rimuoviAnnuncio(${p.id})" class="px-3 py-1 bg-red-600/80 hover:bg-red-600 text-white rounded text-xs transition">Elimina</button>
+                                </td>
+                            </tr>
+                        `;
+                    }
+                });
+            }
+        }
+
+        async function eliminaProdottoMagazzino(id) {
+            const pass = prompt('Inserisci la password Admin per confermare l\'eliminazione:');
+            if (!pass) return;
+
+            const res = await fetch(`/api/prodotti/${id}`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('token') },
+                body: JSON.stringify({ password: pass })
             });
+
+            if (res.ok) {
+                mostraNotifica('Prodotto eliminato!');
+                caricaProdotti();
+            } else {
+                const err = await res.json();
+                mostraNotifica(err.error || 'Password errata o errore eliminazione', 'error');
+            }
         }
 
         function aggiornaInfoProdottoShop() {
@@ -349,7 +590,6 @@
                 prodotto_id: prodId,
                 categoria_shop: document.getElementById('categoria-shop').value,
                 prezzo: parseFloat(document.getElementById('prezzo-annuncio').value) || 0,
-                quantita_annuncio: parseInt(document.getElementById('qta-disponibile').value) || 0,
                 url_immagine: document.getElementById('url-immagine').value,
                 descrizione: document.getElementById('descrizione-annuncio').value
             };
@@ -371,12 +611,35 @@
 
         async function rimuoviAnnuncio(id) {
             if (!confirm('Rimuovere questo annuncio dallo shop?')) return;
-            await fetch(`/api/annunci/rimuovi/${id}`, { 
+            const res = await fetch(`/api/annunci/rimuovi/${id}`, { 
                 method: 'DELETE', 
                 headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') } 
             });
-            mostraNotifica('Annuncio rimosso!');
-            caricaProdotti();
+            if (res.ok) {
+                mostraNotifica('Annuncio rimosso dallo shop!');
+                caricaProdotti();
+            }
+        }
+
+        async function simulaScansione() {
+            const codice = document.getElementById('codice-test').value;
+            if (!codice) return mostraNotifica('Inserisci un codice a barre', 'error');
+
+            const res = await fetch('/api/plc/scansione', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('token') },
+                body: JSON.stringify({ codice_barre: codice })
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                mostraNotifica(data.status);
+                document.getElementById('codice-test').value = '';
+                caricaProdotti();
+            } else {
+                const err = await res.json();
+                mostraNotifica(err.error || 'Codice non trovato', 'error');
+            }
         }
 
         async function eseguiCambioPassword(e) {
@@ -391,6 +654,10 @@
         }
 
         socket.on('inventario_aggiornato', caricaProdotti);
+        socket.on('categorie_aggiornate', caricaCategorie);
+
+        // Inizializzazione pagina
+        caricaCategorie();
         caricaProdotti();
     </script>
 </body>
