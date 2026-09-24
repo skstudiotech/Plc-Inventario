@@ -2,84 +2,187 @@
 <html lang="it">
 <head>
     <meta charset="UTF-8">
-    <title>Sistemi PLC - SK GROUP SYSTEM</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Componenti PC & Schede Madri - SK GROUP SYSTEM</title>
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Inter (Stesso font della Home) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
     <style>
-        body { background-color: #0b0f19; color: #f8fafc; font-family: sans-serif; }
-        .glass-card { background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(255, 255, 255, 0.1); backdrop-filter: blur(12px); }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #030712;
+            /* Pattern di sfondo a punti identico alla Home */
+            background-image: radial-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1px);
+            background-size: 24px 24px;
+        }
     </style>
 </head>
-<body>
+<body class="text-slate-100 min-h-screen flex flex-col justify-between selection:bg-blue-600 selection:text-white">
 
-    <!-- Header / Navbar stile Home Page -->
-    <header class="flex justify-between items-center px-10 py-6 border-b border-slate-800 glass-card">
-        <div class="flex items-center space-x-3">
-            <div class="bg-blue-600 text-white font-bold p-2 rounded-lg">SK</div>
-            <span class="font-extrabold tracking-wider text-xl">SK GROUP SYSTEM</span>
+    <!-- HEADER / NAVBAR -->
+    <header class="bg-slate-950/80 backdrop-blur-md border-b border-slate-800/80 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-6 h-20 flex justify-between items-center">
+            <!-- Brand Logo -->
+            <a href="index.html" class="flex items-center gap-3 group">
+                <div class="bg-blue-600 text-white font-black px-3 py-1.5 rounded-lg text-sm tracking-wider shadow-lg shadow-blue-600/30 group-hover:scale-105 transition-transform">
+                    SK
+                </div>
+                <span class="text-base font-extrabold tracking-wider uppercase text-white">
+                    SK GROUP SYSTEM
+                </span>
+            </a>
+
+            <!-- Navigation Links -->
+            <nav class="hidden md:flex items-center gap-8 text-xs font-semibold text-slate-300">
+                <a href="index.html" class="hover:text-blue-400 transition">Home</a>
+                <a href="componenti-pc.html" class="text-blue-400 font-bold border-b-2 border-blue-500 pb-1">Componenti PC</a>
+                <a href="sistemi-plc.html" class="hover:text-blue-400 transition">Sistemi PLC</a>
+                <a href="dashboard.html" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg font-bold transition shadow-lg shadow-blue-600/20 active:scale-95">
+                    🔒 Area Lavoratori
+                </a>
+            </nav>
         </div>
-        <nav class="space-x-6 text-sm text-slate-300">
-            <a href="index.html" class="hover:text-blue-400">Home</a>
-            <a href="componenti-pc.html" class="hover:text-blue-400">Componenti PC</a>
-            <a href="sistemi-plc.html" class="text-blue-500 font-bold">Sistemi PLC</a>
-            <a href="login.html" class="hover:text-blue-400">Area Lavoratori</a>
-        </nav>
     </header>
 
-    <!-- Main Content Grid -->
-    <main class="max-w-7xl mx-auto px-6 py-12">
-        <h1 class="text-3xl font-extrabold mb-8 text-center text-blue-400">Catalogo Annunci Disponibili</h1>
+    <!-- MAIN CONTENT -->
+    <main class="max-w-7xl mx-auto px-6 py-12 flex-grow w-full space-y-10">
         
-        <div id="grid-prodotti" class="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <!-- Gli annunci verranno caricati qui via JavaScript -->
+        <!-- Hero Section Pagina -->
+        <div class="text-center space-y-4 max-w-3xl mx-auto">
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-[11px] font-bold uppercase tracking-wider">
+                <span class="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
+                Hardware & Componentistica Gaming/Workstation
+            </div>
+            
+            <h1 class="text-4xl md:text-5xl font-black text-white tracking-tight leading-tight">
+                Catalogo <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-500">Componenti PC</span>
+            </h1>
+            
+            <p class="text-sm text-slate-400 font-normal leading-relaxed max-w-xl mx-auto">
+                Componenti hardware, schede madri e periferiche ad alte prestazioni verificate e disponibili direttamente in pronta consegna.
+            </p>
+        </div>
+
+        <!-- GRIGLIA PRODOTTI -->
+        <div id="griglia-prodotti" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 pt-4">
+            <div class="col-span-full text-center py-20 text-slate-500 font-medium text-sm">
+                Caricamento prodotti in corso...
+            </div>
         </div>
     </main>
 
-    <script>
-        async function caricaAnnunci() {
-            const res = await fetch('/api/prodotti');
-            const prodotti = await res.json();
-            const container = document.getElementById('grid-prodotti');
-            container.innerHTML = '';
+    <!-- FOOTER -->
+    <footer class="bg-slate-950 border-t border-slate-900 py-8 text-center text-xs text-slate-500">
+        <div class="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-2">
+                <div class="bg-blue-600/20 text-blue-400 text-[10px] font-black px-2 py-0.5 rounded">SK</div>
+                <span class="font-bold text-slate-400">SK GROUP SYSTEM</span>
+            </div>
+            <p>&copy; 2026 SK GROUP SYSTEM — Tutti i diritti riservati.</p>
+        </div>
+    </footer>
 
-            prodotti.forEach(p => {
-                const esaurito = p.quantita <= 0;
-                container.innerHTML += `
-                    <div class="glass-card rounded-2xl p-6 flex flex-col justify-between">
-                        <div>
-                            <img src="${p.immagine || 'https://via.placeholder.com/300'}" class="w-full h-48 object-cover rounded-xl mb-4">
-                            <span class="text-xs text-blue-400 font-bold uppercase">${p.categoria}</span>
-                            <h3 class="text-xl font-bold mt-1 mb-2">${p.nome}</h3>
-                            <p class="text-slate-400 text-sm mb-4">${p.descrizione || 'Nessuna descrizione.'}</p>
+    <!-- SCRIPT GESTIONE PRODOTTI -->
+    <script>
+        async function caricaProdottiReparto() {
+            try {
+                const res = await fetch('/api/public/annunci');
+                if (!res.ok) throw new Error("Errore durante il recupero dei dati");
+                const tuttiAnnunci = await res.json();
+
+                // Filtra solo quelli di Componenti PC & Schede Madri
+                const annunciFiltrati = tuttiAnnunci.filter(a => {
+                    if (!a.categoria) return false;
+                    const cat = a.categoria.toLowerCase();
+                    return cat.includes('componenti') || cat.includes('schede') || cat.includes('pc');
+                });
+
+                const container = document.getElementById('griglia-prodotti');
+                container.innerHTML = '';
+
+                if (!annunciFiltrati || annunciFiltrati.length === 0) {
+                    container.innerHTML = `
+                        <div class="col-span-full bg-slate-900/60 border border-slate-800/80 p-12 rounded-3xl text-center space-y-3 backdrop-blur-sm max-w-lg mx-auto">
+                            <div class="text-3xl">💻</div>
+                            <p class="text-slate-200 font-bold text-base">Nessun articolo disponibile in questo reparto</p>
+                            <p class="text-xs text-slate-400">Al momento non ci sono annunci attivi per Componenti PC. Gli amministratori possono pubblicarne di nuovi dalla dashboard Ufficio.</p>
                         </div>
-                        <div>
-                            <div class="flex justify-between items-center mb-4">
-                                <span class="text-2xl font-black text-white">€${p.prezzo}</span>
-                                <span class="text-sm font-semibold ${esaurito ? 'text-red-500' : 'text-emerald-400'}">
-                                    ${esaurito ? 'ESAURITO' : 'Disponibile (' + p.quantita + ')'}
-                                </span>
+                    `;
+                    return;
+                }
+
+                annunciFiltrati.forEach(a => {
+                    const imgUrl = (a.immagine && a.immagine.trim() !== '') ? a.immagine : 'https://via.placeholder.com/600x400/0f172a/38bdf8?text=Componenti+PC';
+                    const desc = a.descrizione || 'Nessuna descrizione specificata per questo articolo.';
+
+                    container.innerHTML += `
+                        <div class="bg-slate-900/80 border border-slate-800/80 hover:border-blue-500/50 rounded-2xl overflow-hidden flex flex-col justify-between transition-all duration-300 shadow-2xl hover:-translate-y-1 group backdrop-blur-sm">
+                            <div>
+                                <!-- Immagine -->
+                                <div class="h-52 w-full bg-slate-950 overflow-hidden relative">
+                                    <img src="${imgUrl}" alt="${a.prodotto_nome}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                                    <span class="absolute top-3 right-3 bg-blue-600/90 backdrop-blur-md text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider shadow-md">
+                                        ${a.categoria}
+                                    </span>
+                                </div>
+                                
+                                <!-- Dettagli Testo -->
+                                <div class="p-6 space-y-2">
+                                    <h3 class="font-bold text-slate-100 text-lg group-hover:text-blue-400 transition-colors">${a.prodotto_nome}</h3>
+                                    <p class="text-xs text-slate-400 leading-relaxed line-clamp-3">${desc}</p>
+                                </div>
                             </div>
-                            <button onclick="acquista(${p.id})" ${esaurito ? 'disabled' : ''} 
-                                class="w-full py-3 rounded-xl font-bold ${esaurito ? 'bg-slate-700 text-slate-500 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-500 text-white transition'}">
-                                ${esaurito ? 'Non Disponibile' : 'Acquista Ora'}
-                            </button>
+
+                            <!-- Footer Card Prezzo e Tasto -->
+                            <div class="p-6 border-t border-slate-800/80 bg-slate-950/40 flex items-center justify-between">
+                                <div>
+                                    <p class="text-[10px] uppercase font-extrabold tracking-wider text-slate-500">Prezzo Unitario</p>
+                                    <p class="text-2xl font-black text-blue-400">€ ${parseFloat(a.prezzo).toFixed(2)}</p>
+                                    <p class="text-[10px] text-emerald-400 font-semibold mt-0.5 flex items-center gap-1">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                                        Disponibili: ${a.quantita} pz
+                                    </p>
+                                </div>
+                                <button onclick="acquistaProdotto(${a.id})" class="bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-bold text-xs px-5 py-3 rounded-xl transition-all shadow-lg shadow-blue-600/20 flex items-center gap-2">
+                                    <span>🛒</span> Acquista
+                                </button>
+                            </div>
                         </div>
+                    `;
+                });
+            } catch (err) {
+                console.error("Errore nel caricamento prodotti:", err);
+                document.getElementById('griglia-prodotti').innerHTML = `
+                    <div class="col-span-full text-center text-red-400 text-xs py-10">
+                        Si è verificato un errore nel recupero del catalogo.
                     </div>
                 `;
-            });
-        }
-
-        async function acquista(id) {
-            const res = await fetch(`/api/prodotti/acquista/${id}`, { method: 'POST' });
-            const data = await res.json();
-            if (data.success) {
-                alert(data.message);
-                caricaAnnunci();
-            } else {
-                alert(data.error);
             }
         }
 
-        caricaAnnunci();
+        async function acquistaProdotto(annuncioId) {
+            if (!confirm("Confermi l'ordine per questo componente?")) return;
+
+            const res = await fetch('/api/public/acquista', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ annuncio_id: annuncioId, quantita_acquistata: 1 })
+            });
+
+            const data = await res.json();
+            if (res.ok) {
+                alert(data.status);
+                caricaProdottiReparto();
+            } else {
+                alert("Errore: " + data.error);
+            }
+        }
+
+        caricaProdottiReparto();
     </script>
 </body>
 </html>
