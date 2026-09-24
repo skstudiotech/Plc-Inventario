@@ -1,405 +1,287 @@
 const express = require('express');
-const sqlite3 = require('sqlite3').verbose();
-const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
-const path = require('path');
 const http = require('http');
 const { Server } = require('socket.io');
+const jwt = require('jsonwebtoken');
+const bcrypt = require('bcrypt');
+const path = require('path');
+const db = require('./database');
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-const PORT = process.env.PORT || 3000;
-const SECRET_KEY = process.env.JWT_SECRET || 'sk_group_system_super_secret_key';
+const SECRET_KEY = 'super_segreto_plc_key';
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Connessione al database SQLite
-const db = new sqlite3.Database(path.resolve(__dirname, 'database.db'), (err) => {
-    if (err) {
-        console.error('Errore di connessione al database SQLite:', err.message);
-    } else {
-        console.log('Connesso al database SQLite.');
-    }
-});
-
-// Inizializzazione tabelle Database
-db.serialize(() => {
-    db.run("PRAGMA foreign_keys = ON");
-
-    db.run(`CREATE TABLE IF NOT EXISTS utenti (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT UNIQUE,
-        password TEXT,
-        ruolo TEXT DEFAULT 'Operatore'
-    )`);
-
-    db.run(`CREATE TABLE IF NOT EXISTS prodotti (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        codice_barre TEXT UNIQUE,
-        nome TEXT,
-        categoria TEXT DEFAULT 'Generico',
-        quantita INTEGER DEFAULT 0,
-        prezzo REAL DEFAULT 0,
-        immagine TEXT,
-        descrizione TEXT,
-        prodotto_padre_id INTEGER,
-        categoria_shop TEXT DEFAULT '',
-        pubblicato_shop INTEGER DEFAULT 0
-    )`);
-
-    db.run(`CREATE TABLE IF NOT EXISTS categorie (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        nome TEXT UNIQUE NOT NULL,
-        colore TEXT DEFAULT '#64748b'
-    )`, () => {
-        db.run(`INSERT OR IGNORE INTO categorie (nome, colore) VALUES ('Componenti PC & Schede Madri', '#3b82f6')`);
-        db.run(`INSERT OR IGNORE INTO categorie (nome, colore) VALUES ('Costruzione Custom PC', '#8b5cf6')`);
-        db.run(`INSERT OR IGNORE INTO categorie (nome, colore) VALUES ('Sistemi PLC & Componenti', '#10b981')`);
-        db.run(`INSERT OR IGNORE INTO categorie (nome, colore) VALUES ('Generico', '#64748b')`);
-    });
-
-    // Account Admin predefinito
-    db.get(`SELECT * FROM utenti WHERE username = ?`, ['admin'], async (err, row) => {
-        if (!row) {
-            const hashedPassword = await bcrypt.hash('admin', 10);
-            db.run(`INSERT INTO utenti (username, password, ruolo) VALUES (?, ?, ?)`, ['admin', hashedPassword, 'Admin']);
-        }
-    });
-});
-
-// Middleware Autenticazione JWT (Verifica Token)
-function verifyToken(req, res, next) {
+// Middleware di Autenticazione JWT
+function autenticaToken(req, res, next) {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
-    if (!token) return res.status(401).json({ error: "Accesso non autorizzato. Token mancante." });
+    if (!token) return res.status(401).json({ error: 'Accesso non autorizzato (Token mancante)' });
 
     jwt.verify(token, SECRET_KEY, (err, user) => {
-        if (err) return res.status(403).json({ error: "Token non valido o scaduto." });
+        if (err) return res.status(403).json({ error: 'Token non valido o scaduto' });
         req.user = user;
         next();
     });
 }
 
-// Alias per compatibilità con eventuali altre chiamate
-const autenticaToken = verifyToken;
+// Middleware Controllo Ruoli
+function controllaRuoli(...ruoliPermessi) {
+    return (req, res, next) => {
+        if (!req.user || !ruoliPermessi.includes(req.user.ruolo)) {
+            return res.status(403).json({ error: 'Permesso negato per questo ruolo' });
+        }
+        next();
+    };
+}
 
-// ================= API AUTH & UTENTI =================
-
+// ---------------------------------------------------------
+// ROTTE AUTENTICAZIONE & UTENTI
+// ---------------------------------------------------------
 app.post('/api/login', (req, res) => {
     const { username, password } = req.body;
     db.get(`SELECT * FROM utenti WHERE username = ?`, [username], async (err, user) => {
-        if (err || !user) return res.status(400).json({ error: "Credenziali non valide." });
-
+        if (err || !user) return res.status(400).json({ error: 'Utente non trovato' });
         const match = await bcrypt.compare(password, user.password);
-        if (!match) return res.status(400).json({ error: "Credenziali non valide." });
+        if (!match) return res.status(400).json({ error: 'Password errata' });
 
-        const token = jwt.sign({ id: user.id, username: user.username, ruolo: user.ruolo }, SECRET_KEY, { expiresIn: '2h' });
-        res.json({ success: true, token, ruolo: user.ruolo, username: user.username });
+        const token = jwt.sign({ id: user.id, username: user.username, ruolo: user.ruolo }, SECRET_KEY, { expiresIn: '8h' });
+        res.json({ token, username: user.username, ruolo: user.ruolo });
     });
 });
 
-app.post('/api/admin/crea-utente', verifyToken, async (req, res) => {
-    if (req.user.ruolo !== 'Admin' && req.user.role !== 'admin') {
-        return res.status(403).json({ error: "Accesso negato. Solo l'Admin può creare account." });
-    }
-    
-    const { newUsername, newPassword, ruolo } = req.body;
-    const ruoloScelto = ruolo || req.body.role || 'Operatore';
-
-    try {
-        const hashedPassword = await bcrypt.hash(newPassword, 10);
-        db.run(`INSERT INTO utenti (username, password, ruolo) VALUES (?, ?, ?)`, [newUsername, hashedPassword, ruoloScelto], function(err) {
-            if (err) return res.status(500).json({ error: "Nome utente già esistente." });
-            res.json({ success: true, message: "Utente creato con successo!" });
-        });
-    } catch (e) {
-        res.status(500).json({ error: "Errore interno del server." });
-    }
+app.post('/api/cambia-password', autenticaToken, async (req, res) => {
+    const { nuovaPassword } = req.body;
+    const hash = await bcrypt.hash(nuovaPassword, 10);
+    db.run(`UPDATE utenti SET password = ? WHERE id = ?`, [hash, req.user.id], function(err) {
+        if (err) return res.status(500).json({ error: 'Errore durante l\'aggiornamento password' });
+        res.json({ status: 'Password aggiornata con successo' });
+    });
 });
 
-app.get('/api/admin/utenti', verifyToken, (req, res) => {
-    if (req.user.ruolo !== 'Admin' && req.user.role !== 'admin') return res.status(403).json({ error: "Accesso negato." });
+app.get('/api/admin/utenti', autenticaToken, controllaRuoli('Admin'), (req, res) => {
     db.all(`SELECT id, username, ruolo FROM utenti`, [], (err, rows) => {
-        if (err) return res.status(500).json({ error: "Errore database." });
+        if (err) return res.status(500).json({ error: err.message });
         res.json(rows);
     });
 });
 
-app.put('/api/admin/cambia-ruolo', verifyToken, (req, res) => {
-    if (req.user.ruolo !== 'Admin' && req.user.role !== 'admin') return res.status(403).json({ error: "Accesso negato." });
+app.post('/api/admin/crea-utente', autenticaToken, controllaRuoli('Admin'), async (req, res) => {
+    const { newUsername, newPassword, ruolo } = req.body;
+    const hash = await bcrypt.hash(newPassword, 10);
+    db.run(`INSERT INTO utenti (username, password, ruolo) VALUES (?, ?, ?)`, [newUsername, hash, ruolo], function(err) {
+        if (err) return res.status(400).json({ error: 'Username già esistente' });
+        res.json({ status: 'Utente creato', id: this.lastID });
+    });
+});
+
+app.put('/api/admin/cambia-ruolo', autenticaToken, controllaRuoli('Admin'), (req, res) => {
     const { id, nuovoRuolo } = req.body;
     db.run(`UPDATE utenti SET ruolo = ? WHERE id = ?`, [nuovoRuolo, id], function(err) {
-        if (err) return res.status(500).json({ error: "Errore aggiornamento ruolo." });
-        res.json({ success: true });
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ status: 'Ruolo aggiornato' });
     });
 });
 
-app.put('/api/admin/cambia-password-utente', verifyToken, async (req, res) => {
-    if (req.user.ruolo !== 'Admin' && req.user.role !== 'admin') return res.status(403).json({ error: "Accesso negato." });
-    const { id, nuovaPassword } = req.body;
-    try {
-        const hashed = await bcrypt.hash(nuovaPassword, 10);
-        db.run(`UPDATE utenti SET password = ? WHERE id = ?`, [hashed, id], function(err) {
-            if (err) return res.status(500).json({ error: "Errore aggiornamento password." });
-            res.json({ success: true });
-        });
-    } catch (e) {
-        res.status(500).json({ error: "Errore server." });
-    }
-});
-
-app.delete('/api/admin/elimina-utente/:id', verifyToken, (req, res) => {
-    if (req.user.ruolo !== 'Admin' && req.user.role !== 'admin') return res.status(403).json({ error: "Accesso negato." });
+app.delete('/api/admin/elimina-utente/:id', autenticaToken, controllaRuoli('Admin'), (req, res) => {
     db.run(`DELETE FROM utenti WHERE id = ?`, [req.params.id], function(err) {
-        if (err) return res.status(500).json({ error: "Errore eliminazione utente." });
-        res.json({ success: true });
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ status: 'Utente eliminato' });
     });
 });
 
-app.post('/api/cambia-password', verifyToken, async (req, res) => {
-    const { nuovaPassword } = req.body;
-    try {
-        const hashed = await bcrypt.hash(nuovaPassword, 10);
-        db.run(`UPDATE utenti SET password = ? WHERE id = ?`, [hashed, req.user.id], function(err) {
-            if (err) return res.status(500).json({ error: "Errore aggiornamento password." });
-            res.json({ success: true });
-        });
-    } catch (e) {
-        res.status(500).json({ error: "Errore server." });
-    }
-});
-
-// ================= API CATEGORIE =================
-
-app.get('/api/categorie', verifyToken, (req, res) => {
-    db.all(`SELECT * FROM categorie`, [], (err, rows) => {
-        if (err) return res.status(500).json({ error: "Errore database." });
-        res.json(rows);
-    });
-});
-
-app.post('/api/categorie', verifyToken, (req, res) => {
-    if (req.user.ruolo !== 'Admin' && req.user.role !== 'admin') {
-        return res.status(403).json({ error: "Solo l'Admin può creare o modificare le categorie." });
-    }
-    const { nome, colore } = req.body;
-    db.run(`INSERT INTO categorie (nome, colore) VALUES (?, ?)`, [nome, colore || '#64748b'], function(err) {
-        if (err) return res.status(500).json({ error: "Categoria già esistente." });
-        io.emit('categorie_aggiornate');
-        res.json({ success: true, id: this.lastID });
-    });
-});
-
-app.delete('/api/categorie/:id', verifyToken, (req, res) => {
-    if (req.user.ruolo !== 'Admin' && req.user.role !== 'admin') {
-        return res.status(403).json({ error: "Accesso negato." });
-    }
-    db.run(`DELETE FROM categorie WHERE id = ?`, [req.params.id], function(err) {
-        if (err) return res.status(500).json({ error: "Errore eliminazione." });
-        io.emit('categorie_aggiornate');
-        res.json({ success: true });
-    });
-});
-
-// ================= API PRODOTTI & SHOP =================
-
-app.get('/api/prodotti', verifyToken, (req, res) => {
+// ---------------------------------------------------------
+// ROTTE MAGAZZINO & CATEGORIE
+// ---------------------------------------------------------
+app.get('/api/prodotti', autenticaToken, (req, res) => {
     db.all(`SELECT * FROM prodotti`, [], (err, rows) => {
-        if (err) return res.status(500).json({ error: "Errore database." });
+        if (err) return res.status(500).json({ error: err.message });
         res.json(rows);
     });
 });
 
-app.get('/api/prodotti/categoria/:categoria', (req, res) => {
-    const categoriaDecodificata = decodeURIComponent(req.params.categoria);
-    db.all(`SELECT * FROM prodotti WHERE categoria = ?`, [categoriaDecodificata], (err, rows) => {
-        if (err) return res.status(500).json({ error: "Errore database." });
-        res.json(rows);
-    });
-});
+app.post('/api/prodotti', autenticaToken, controllaRuoli('Admin', 'Operatore'), (req, res) => {
+    const { nome, categoria } = req.body;
+    let codice_barre = req.body.codice_barre || Math.floor(10000000 + Math.random() * 90000000).toString();
 
-// Creazione o Pubblicazione Prodotti/Annunci
-app.post('/api/prodotti', verifyToken, (req, res) => {
-    if (req.user.ruolo !== 'Admin' && req.user.role !== 'admin' && req.user.ruolo !== 'Ufficio' && req.user.role !== 'Ufficio' && req.user.ruolo !== 'Operatore') {
-        return res.status(403).json({ error: "Non hai i permessi necessari." });
-    }
-
-    const { prodotto_id, codice_barre, nome, categoria, prezzo, quantita, immagine, descrizione } = req.body;
-    const qtyInput = parseInt(quantita) || 1;
-
-    if (prodotto_id) {
-        db.get(`SELECT * FROM prodotti WHERE id = ?`, [prodotto_id], (err, dbProd) => {
-            if (err || !dbProd) return res.status(400).json({ error: "Prodotto selezionato non trovato nel database." });
-            
-            if (qtyInput > dbProd.quantita) {
-                return res.status(400).json({ error: `Quantità non valida! Disponibile a magazzino nel database: ${dbProd.quantita}` });
-            }
-
-            const codiceAnnuncio = 'ANN-' + Math.floor(10000000 + Math.random() * 90000000);
-            db.run(`INSERT INTO prodotti (codice_barre, nome, categoria, quantita, prezzo, immagine, descrizione, prodotto_padre_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-                [codiceAnnuncio, dbProd.nome, categoria || dbProd.categoria, qtyInput, prezzo || 0, immagine || '', descrizione || '', dbProd.id], function(err) {
-                if (err) return res.status(500).json({ error: "Errore nella creazione dell'annuncio." });
+    db.get(`SELECT * FROM prodotti WHERE codice_barre = ?`, [codice_barre], (err, row) => {
+        if (row) {
+            db.run(`UPDATE prodotti SET quantita = quantita + 1 WHERE id = ?`, [row.id], function(err) {
+                if (err) return res.status(500).json({ error: err.message });
                 io.emit('inventario_aggiornato');
-                res.json({ success: true, id: this.lastID });
+                res.json({ status: 'Quantità incrementata', codice_generato: codice_barre });
             });
-        });
-    } else {
-        const codiceGenerato = codice_barre || Math.floor(10000000 + Math.random() * 90000000).toString();
-        db.run(`INSERT INTO prodotti (codice_barre, nome, categoria, quantita, prezzo, immagine, descrizione) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            [codiceGenerato, nome, categoria || 'Generico', qtyInput, 0, '', ''], function(err) {
-            if (err) return res.status(500).json({ error: "Errore nel salvataggio del prodotto." });
-            io.emit('inventario_aggiornato');
-            res.json({ success: true, id: this.lastID, codice_generato: codiceGenerato });
-        });
-    }
-});
-
-// Pubblicazione / Aggiornamento Annuncio Shop
-app.post('/api/annunci/pubblica', verifyToken, (req, res) => {
-    const { prodotto_id, categoria_shop, prezzo, url_immagine, descrizione } = req.body;
-
-    if (!prodotto_id) {
-        return res.status(400).json({ error: 'Prodotto non selezionato' });
-    }
-
-    const query = `
-        UPDATE prodotti 
-        SET categoria_shop = ?, prezzo = ?, immagine = ?, descrizione = ?, pubblicato_shop = 1 
-        WHERE id = ?
-    `;
-
-    db.run(query, [categoria_shop, prezzo, url_immagine, descrizione, prodotto_id], function(err) {
-        if (err) {
-            return res.status(500).json({ error: 'Errore durante la pubblicazione dell\'annuncio' });
+        } else {
+            db.run(`INSERT INTO prodotti (codice_barre, nome, categoria, quantita) VALUES (?, ?, ?, 1)`, [codice_barre, nome, categoria], function(err) {
+                if (err) return res.status(500).json({ error: err.message });
+                io.emit('inventario_aggiornato');
+                res.json({ status: 'Prodotto creato', codice_generato: codice_barre, id: this.lastID });
+            });
         }
-        io.emit('inventario_aggiornato');
-        res.json({ success: true, message: 'Annuncio pubblicato con successo nello shop!' });
     });
 });
 
-// Rimozione Annuncio dallo Shop
-app.delete('/api/annunci/rimuovi/:id', verifyToken, (req, res) => {
-    const id = req.params.id;
-    const query = `UPDATE prodotti SET pubblicato_shop = 0 WHERE id = ?`;
-
-    db.run(query, [id], function(err) {
-        if (err) {
-            return res.status(500).json({ error: 'Errore nella rimozione dell\'annuncio' });
-        }
-        io.emit('inventario_aggiornato');
-        res.json({ success: true });
-    });
-});
-
-// Modifica Prodotto
-app.put('/api/prodotti/:id', verifyToken, (req, res) => {
-    if (req.user.ruolo !== 'Admin' && req.user.role !== 'admin' && req.user.ruolo !== 'Ufficio' && req.user.role !== 'Ufficio') {
-        return res.status(403).json({ error: "Accesso negato." });
-    }
-
-    const { nome, categoria, prezzo, quantita, immagine, descrizione } = req.body;
-    const qtyInput = parseInt(quantita) || 0;
-
-    db.get(`SELECT quantita FROM prodotti WHERE id = ?`, [req.params.id], (err, row) => {
-        if (err || !row) return res.status(404).json({ error: "Prodotto non trovato." });
-
-        db.run(`UPDATE prodotti SET nome = ?, categoria = ?, prezzo = ?, quantita = ?, immagine = ?, descrizione = ? WHERE id = ?`,
-            [nome, categoria, prezzo || 0, qtyInput, immagine || '', descrizione || '', req.params.id], function(err) {
-            if (err) return res.status(500).json({ error: "Errore nell'aggiornamento dell'annuncio." });
-            io.emit('inventario_aggiornato');
-            res.json({ success: true });
-        });
-    });
-});
-
-// Eliminazione Annuncio
-app.delete('/api/prodotti/annuncio/:id', verifyToken, (req, res) => {
-    if (req.user.ruolo !== 'Admin' && req.user.role !== 'admin' && req.user.ruolo !== 'Ufficio' && req.user.role !== 'Ufficio') {
-        return res.status(403).json({ error: "Accesso negato." });
-    }
-
-    db.run(`DELETE FROM prodotti WHERE id = ?`, [req.params.id], function(err) {
-        if (err) return res.status(500).json({ error: "Errore eliminazione." });
-        io.emit('inventario_aggiornato');
-        res.json({ success: true });
-    });
-});
-
-// Eliminazione Magazzino con Password Admin
-app.delete('/api/prodotti/:id', verifyToken, async (req, res) => {
-    if (req.user.ruolo !== 'Admin' && req.user.role !== 'admin') {
-        return res.status(403).json({ error: "Solo l'Admin può eliminare i prodotti da questa sezione." });
-    }
+app.delete('/api/prodotti/:id', autenticaToken, controllaRuoli('Admin'), (req, res) => {
     const { password } = req.body;
-    db.get(`SELECT password FROM utenti WHERE id = ?`, [req.user.id], async (err, row) => {
-        if (err || !row) return res.status(400).json({ error: "Utente non trovato." });
-        const match = await bcrypt.compare(password, row.password);
-        if (!match) return res.status(400).json({ error: "Password errata." });
+    db.get(`SELECT * FROM utenti WHERE id = ?`, [req.user.id], async (err, user) => {
+        if (err || !user) return res.status(400).json({ error: 'Utente non valido' });
+        const match = await bcrypt.compare(password, user.password);
+        if (!match) return res.status(401).json({ error: 'Password Admin errata' });
 
         db.run(`DELETE FROM prodotti WHERE id = ?`, [req.params.id], function(err) {
-            if (err) return res.status(500).json({ error: "Errore eliminazione." });
+            if (err) return res.status(500).json({ error: err.message });
             io.emit('inventario_aggiornato');
-            res.json({ success: true });
+            res.json({ status: 'Prodotto eliminato' });
         });
     });
 });
 
-app.post('/api/checkout', (req, res) => {
-    const { prodottoId } = req.body;
-    db.get(`SELECT * FROM prodotti WHERE id = ?`, [prodottoId], (err, prod) => {
-        if (err || !prod) return res.status(404).json({ success: false, error: "Prodotto non trovato." });
-        if (prod.quantita <= 0) return res.status(400).json({ success: false, error: "Prodotto esaurito." });
+app.get('/api/categorie', autenticaToken, (req, res) => {
+    db.all(`SELECT * FROM categorie`, [], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(rows);
+    });
+});
 
-        db.run(`UPDATE prodotti SET quantita = quantita - 1 WHERE id = ?`, [prodottoId], (updateErr) => {
-            if (updateErr) return res.status(500).json({ success: false, error: "Errore durante l'ordine." });
-            
-            if (prod.prodotto_padre_id) {
-                db.run(`UPDATE prodotti SET quantita = MAX(0, quantita - 1) WHERE id = ?`, [prod.prodotto_padre_id]);
-            }
+app.post('/api/categorie', autenticaToken, controllaRuoli('Admin', 'Operatore'), (req, res) => {
+    const { nome, colore } = req.body;
+    db.run(`INSERT INTO categorie (nome, colore) VALUES (?, ?)`, [nome, colore], function(err) {
+        if (err) return res.status(400).json({ error: 'Categoria già esistente' });
+        io.emit('categorie_aggiornate');
+        res.json({ status: 'Categoria creata', id: this.lastID });
+    });
+});
 
-            io.emit('inventario_aggiornato');
-            res.json({ success: true, message: `Ordine effettuato con successo per ${prod.nome}!` });
+app.delete('/api/categorie/:id', autenticaToken, controllaRuoli('Admin', 'Operatore'), (req, res) => {
+    db.run(`DELETE FROM categorie WHERE id = ?`, [req.params.id], function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        io.emit('categorie_aggiornate');
+        res.json({ status: 'Categoria eliminata' });
+    });
+});
+
+// ---------------------------------------------------------
+// ROTTE GESTIONE SHOP / UFFICIO / ANNUNCI
+// ---------------------------------------------------------
+app.get('/api/shop/annunci', autenticaToken, controllaRuoli('Admin', 'Ufficio'), (req, res) => {
+    const query = `
+        SELECT a.*, p.nome as prodotto_nome, p.quantita as quantita_magazzino 
+        FROM annunci_shop a
+        JOIN prodotti p ON a.prodotto_id = p.id
+    `;
+    db.all(query, [], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(rows);
+    });
+});
+
+app.post('/api/shop/annunci', autenticaToken, controllaRuoli('Admin', 'Ufficio'), (req, res) => {
+    const { prodotto_id, categoria, prezzo, quantita, immagine, descrizione } = req.body;
+
+    if (!prodotto_id || !prezzo || !quantita) {
+        return res.status(400).json({ error: 'Compilare tutti i campi obbligatori' });
+    }
+
+    db.get(`SELECT quantita FROM prodotti WHERE id = ?`, [prodotto_id], (err, prod) => {
+        if (err || !prod) return res.status(400).json({ error: 'Prodotto magazzino non trovato' });
+
+        if (parseInt(quantita) > prod.quantita) {
+            return res.status(400).json({ error: `La quantità (${quantita}) supera quella presente in magazzino (${prod.quantita})` });
+        }
+
+        const query = `INSERT INTO annunci_shop (prodotto_id, categoria, prezzo, quantita, immagine, descrizione) VALUES (?, ?, ?, ?, ?, ?)`;
+        db.run(query, [prodotto_id, categoria, prezzo, quantita, immagine, descrizione], function(err) {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ status: 'Annuncio pubblicato con successo!', id: this.lastID });
         });
     });
 });
 
-app.post('/api/plc/scansione', verifyToken, (req, res) => {
+app.put('/api/shop/annunci/:id', autenticaToken, controllaRuoli('Admin', 'Ufficio'), (req, res) => {
+    const { prezzo, quantita, immagine, descrizione } = req.body;
+    const query = `UPDATE annunci_shop SET prezzo = ?, quantita = ?, immagine = ?, descrizione = ? WHERE id = ?`;
+    db.run(query, [prezzo, quantita, immagine, descrizione, req.params.id], function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ status: 'Annuncio aggiornato' });
+    });
+});
+
+app.delete('/api/shop/annunci/:id', autenticaToken, controllaRuoli('Admin', 'Ufficio'), (req, res) => {
+    db.run(`DELETE FROM annunci_shop WHERE id = ?`, [req.params.id], function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ status: 'Annuncio eliminato dallo shop' });
+    });
+});
+
+// ---------------------------------------------------------
+// ROTTA PUBBLICA SHOP (Accessibile da componenti-pc.html)
+// ---------------------------------------------------------
+app.get('/api/public/annunci', (req, res) => {
+    const categoria = req.query.categoria;
+    let query = `
+        SELECT a.*, p.nome as prodotto_nome 
+        FROM annunci_shop a
+        JOIN prodotti p ON a.prodotto_id = p.id
+        WHERE a.quantita > 0
+    `;
+    let params = [];
+
+    if (categoria) {
+        query += ` AND a.categoria = ?`;
+        params.push(categoria);
+    }
+
+    db.all(query, params, (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(rows);
+    });
+});
+
+// Rotta per simulazione acquisto pubblico (scala la quantità sia dall'annuncio che dalla contabilità/magazzino)
+app.post('/api/public/acquista', (req, res) => {
+    const { annuncio_id, quantita_acquistata } = req.body;
+    const qty = parseInt(quantita_acquistata) || 1;
+
+    db.get(`SELECT * FROM annunci_shop WHERE id = ?`, [annuncio_id], (err, annuncio) => {
+        if (err || !annuncio) return res.status(404).json({ error: 'Annuncio non trovato' });
+
+        if (annuncio.quantita < qty) {
+            return res.status(400).json({ error: 'Quantità non disponibile' });
+        }
+
+        // Scala la quantità dal magazzino (contabilità)
+        db.run(`UPDATE prodotti SET quantita = quantita - ? WHERE id = ?`, [qty, annuncio.prodotto_id], (err) => {
+            if (err) return res.status(500).json({ error: err.message });
+
+            // Scala la quantità dall'annuncio dello shop
+            db.run(`UPDATE annunci_shop SET quantita = quantita - ? WHERE id = ?`, [qty, annuncio_id], (err) => {
+                if (err) return res.status(500).json({ error: err.message });
+                io.emit('inventario_aggiornato');
+                res.json({ status: 'Acquisto completato! Inventario e contabilità aggiornati.' });
+            });
+        });
+    });
+});
+
+// ---------------------------------------------------------
+// SIMULATORE SCANNER PLC
+// ---------------------------------------------------------
+app.post('/api/plc/scansione', autenticaToken, controllaRuoli('Admin', 'Operatore'), (req, res) => {
     const { codice_barre } = req.body;
-    db.get(`SELECT * FROM prodotti WHERE codice_barre = ?`, [codice_barre], (err, prod) => {
-        if (err || !prod) return res.status(404).json({ error: "Prodotto non trovato sul nastro PLC." });
-
-        db.run(`UPDATE prodotti SET quantita = quantita + 1 WHERE id = ?`, [prod.id], (updateErr) => {
-            if (updateErr) return res.status(500).json({ error: "Errore aggiornamento quantità." });
+    db.get(`SELECT * FROM prodotti WHERE codice_barre = ?`, [codice_barre], (err, row) => {
+        if (err || !row) return res.status(404).json({ error: 'Codice non trovato nel sistema' });
+        db.run(`UPDATE prodotti SET quantita = quantita + 1 WHERE id = ?`, [row.id], function(err) {
+            if (err) return res.status(500).json({ error: err.message });
             io.emit('inventario_aggiornato');
-            res.json({ success: true, status: `Scansione PLC riuscita: ${prod.nome} (+1)` });
+            res.json({ status: `Scansione OK: ${row.nome} (Q.tà: ${row.quantita + 1})` });
         });
     });
 });
 
-app.post('/api/prodotti/acquista/:id', verifyToken, (req, res) => {
-    const annuncioId = req.params.id;
-
-    db.get('SELECT * FROM prodotti WHERE id = ?', [annuncioId], (err, item) => {
-        if (err || !item) return res.status(404).json({ error: 'Annuncio non trovato' });
-        if (item.quantita <= 0) return res.status(400).json({ error: 'Quantità esaurita (Sold Out)' });
-
-        db.run('UPDATE prodotti SET quantita = quantita - 1 WHERE id = ?', [annuncioId], (updateErr) => {
-            if (updateErr) return res.status(500).json({ error: updateErr.message });
-
-            if (item.prodotto_padre_id) {
-                db.run('UPDATE prodotti SET quantita = MAX(0, quantita - 1) WHERE id = ?', [item.prodotto_padre_id]);
-            }
-
-            io.emit('inventario_aggiornato');
-            res.json({ success: true, message: 'Vendita registrata e inventario aggiornato' });
-        });
-    });
-});
-
-// Avvio Server
+const PORT = 3000;
 server.listen(PORT, () => {
-    console.log(`Server avviato e in ascolto sulla porta ${PORT}`);
+    console.log(`Server avviato su http://localhost:${PORT}`);
 });
