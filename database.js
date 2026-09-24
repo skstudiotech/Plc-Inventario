@@ -5,18 +5,17 @@ const path = require('path');
 const dbPath = path.join(__dirname, 'database.db');
 const db = new sqlite3.Database(dbPath);
 
-// Abilita la modalità WAL per garantire che i dati vengano salvati subito sul disco
-db.run("PRAGMA journal_mode = WAL;");
+// Disattiva il journal WAL temporaneo per salvare subito nel file fisso database.db
+db.run("PRAGMA journal_mode = DELETE;");
 
 db.serialize(() => {
-    // 1. TABELLA UTENTI
+    // TABELLA UTENTI
     db.run(`CREATE TABLE IF NOT EXISTS utenti (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT UNIQUE,
         password TEXT,
         ruolo TEXT
     )`, async () => {
-        // Inserisce utente admin di default solo se la tabella è vuota
         db.get(`SELECT COUNT(*) as count FROM utenti`, async (err, row) => {
             if (row && row.count === 0) {
                 const passwordHash = await bcrypt.hash('admin', 10);
@@ -26,36 +25,37 @@ db.serialize(() => {
         });
     });
 
-    // 2. TABELLA CATEGORIE
+    // TABELLA CATEGORIE
     db.run(`CREATE TABLE IF NOT EXISTS categorie (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        nome TEXT UNIQUE
+        nome TEXT UNIQUE NOT NULL,
+        colore TEXT DEFAULT '#64748b'
     )`, () => {
         db.get(`SELECT COUNT(*) as count FROM categorie`, (err, row) => {
             if (row && row.count === 0) {
                 const categorieIniziali = [
-                    'Componenti PC & Schede Madri',
-                    'Sistemi PLC & Componenti',
-                    'Accessori & Cavi',
-                    'Sensori & Automazione'
+                    ['Componenti PC & Schede Madri', '#8b5cf6'],
+                    ['Sistemi PLC & Componenti', '#3b82f6'],
+                    ['Accessori & Cavi', '#10b981'],
+                    ['Sensori & Automazione', '#64748b']
                 ];
-                const stmt = db.prepare(`INSERT OR IGNORE INTO categorie (nome) VALUES (?)`);
-                categorieIniziali.forEach(cat => stmt.run(cat));
+                const stmt = db.prepare(`INSERT OR IGNORE INTO categorie (nome, colore) VALUES (?, ?)`);
+                categorieIniziali.forEach(cat => stmt.run(cat[0], cat[1]));
                 stmt.finalize();
             }
         });
     });
 
-    // 3. TABELLA PRODUZIONE / MAGAZZINO
+    // TABELLA PRODOTTI / MAGAZZINO
     db.run(`CREATE TABLE IF NOT EXISTS prodotti (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         codice_barre TEXT UNIQUE,
         nome TEXT,
-        categoria TEXT,
-        quantita INTEGER DEFAULT 1
+        quantita INTEGER DEFAULT 0,
+        categoria TEXT DEFAULT 'Generico'
     )`);
 
-    // 4. TABELLA ANNUNCI SHOP
+    // TABELLA ANNUNCI SHOP
     db.run(`CREATE TABLE IF NOT EXISTS annunci_shop (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         prodotto_id INTEGER,
