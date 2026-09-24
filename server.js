@@ -11,7 +11,7 @@ const server = http.createServer(app);
 const io = new Server(server);
 
 const PORT = process.env.PORT || 3000;
-const SECRET_KEY = 'sk_group_system_super_secret_key';
+const SECRET_KEY = process.env.JWT_SECRET || 'sk_group_system_super_secret_key';
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
@@ -25,7 +25,7 @@ const db = new sqlite3.Database(path.resolve(__dirname, 'database.db'), (err) =>
     }
 });
 
-// Inizializzazione tabelle
+// Inizializzazione tabelle Database
 db.serialize(() => {
     db.run("PRAGMA foreign_keys = ON");
 
@@ -45,7 +45,9 @@ db.serialize(() => {
         prezzo REAL DEFAULT 0,
         immagine TEXT,
         descrizione TEXT,
-        prodotto_padre_id INTEGER
+        prodotto_padre_id INTEGER,
+        categoria_shop TEXT DEFAULT '',
+        pubblicato_shop INTEGER DEFAULT 0
     )`);
 
     db.run(`CREATE TABLE IF NOT EXISTS categorie (
@@ -68,7 +70,7 @@ db.serialize(() => {
     });
 });
 
-// Middleware autenticazione JWT
+// Middleware Autenticazione JWT (Verifica Token)
 function verifyToken(req, res, next) {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
@@ -80,6 +82,9 @@ function verifyToken(req, res, next) {
         next();
     });
 }
+
+// Alias per compatibilità con eventuali altre chiamate
+const autenticaToken = verifyToken;
 
 // ================= API AUTH & UTENTI =================
 
@@ -225,7 +230,6 @@ app.post('/api/prodotti', verifyToken, (req, res) => {
     const { prodotto_id, codice_barre, nome, categoria, prezzo, quantita, immagine, descrizione } = req.body;
     const qtyInput = parseInt(quantita) || 1;
 
-    // Se si sta creando un annuncio a partire da un prodotto del magazzino
     if (prodotto_id) {
         db.get(`SELECT * FROM prodotti WHERE id = ?`, [prodotto_id], (err, dbProd) => {
             if (err || !dbProd) return res.status(400).json({ error: "Prodotto selezionato non trovato nel database." });
@@ -234,7 +238,6 @@ app.post('/api/prodotti', verifyToken, (req, res) => {
                 return res.status(400).json({ error: `Quantità non valida! Disponibile a magazzino nel database: ${dbProd.quantita}` });
             }
 
-            // CREA UN NUOVO RECORD SEPARATO PER L'ANNUNCIO (senza intaccare la quantità del magazzino reale)
             const codiceAnnuncio = 'ANN-' + Math.floor(10000000 + Math.random() * 90000000);
             db.run(`INSERT INTO prodotti (codice_barre, nome, categoria, quantita, prezzo, immagine, descrizione, prodotto_padre_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
                 [codiceAnnuncio, dbProd.nome, categoria || dbProd.categoria, qtyInput, prezzo || 0, immagine || '', descrizione || '', dbProd.id], function(err) {
@@ -244,7 +247,6 @@ app.post('/api/prodotti', verifyToken, (req, res) => {
             });
         });
     } else {
-        // Creazione normale prodotto in inventario magazzino
         const codiceGenerato = codice_barre || Math.floor(10000000 + Math.random() * 90000000).toString();
         db.run(`INSERT INTO prodotti (codice_barre, nome, categoria, quantita, prezzo, immagine, descrizione) VALUES (?, ?, ?, ?, ?, ?, ?)`,
             [codiceGenerato, nome, categoria || 'Generico', qtyInput, 0, '', ''], function(err) {
@@ -255,7 +257,44 @@ app.post('/api/prodotti', verifyToken, (req, res) => {
     }
 });
 
-// MODIFICA ANNUNCIO / PRODOTTO
+// Pubblicazione / Aggiornamento Annuncio Shop
+app.post('/api/annunci/pubblica', verifyToken, (req, res) => {
+    const { prodotto_id, categoria_shop, prezzo, url_immagine, descrizione } = req.body;
+
+    if (!prodotto_id) {
+        return res.status(400).json({ error: 'Prodotto non selezionato' });
+    }
+
+    const query = `
+        UPDATE prodotti 
+        SET categoria_shop = ?, prezzo = ?, immagine = ?, descrizione = ?, pubblicato_shop = 1 
+        WHERE id = ?
+    `;
+
+    db.run(query, [categoria_shop, prezzo, url_immagine, descrizione, prodotto_id], function(err) {
+        if (err) {
+            return res.status(500).json({ error: 'Errore durante la pubblicazione dell\'annuncio' });
+        }
+        io.emit('inventario_aggiornato');
+        res.json({ success: true, message: 'Annuncio pubblicato con successo nello shop!' });
+    });
+});
+
+// Rimozione Annuncio dallo Shop
+app.delete('/api/annunci/rimuovi/:id', verifyToken, (req, res) => {
+    const id = req.params.id;
+    const query = `UPDATE prodotti SET pubblicato_shop = 0 WHERE id = ?`;
+
+    db.run(query, [id], function(err) {
+        if (err) {
+            return res.status(500).json({ error: 'Errore nella rimozione dell\'annuncio' });
+        }
+        io.emit('inventario_aggiornato');
+        res.json({ success: true });
+    });
+});
+
+// Modifica Prodotto
 app.put('/api/prodotti/:id', verifyToken, (req, res) => {
     if (req.user.ruolo !== 'Admin' && req.user.role !== 'admin' && req.user.ruolo !== 'Ufficio' && req.user.role !== 'Ufficio') {
         return res.status(403).json({ error: "Accesso negato." });
@@ -276,7 +315,7 @@ app.put('/api/prodotti/:id', verifyToken, (req, res) => {
     });
 });
 
-// ELIMINAZIONE DIRETTA ANNUNCIO (Ufficio / Admin)
+// Eliminazione Annuncio
 app.delete('/api/prodotti/annuncio/:id', verifyToken, (req, res) => {
     if (req.user.ruolo !== 'Admin' && req.user.role !== 'admin' && req.user.ruolo !== 'Ufficio' && req.user.role !== 'Ufficio') {
         return res.status(403).json({ error: "Accesso negato." });
@@ -314,11 +353,9 @@ app.post('/api/checkout', (req, res) => {
         if (err || !prod) return res.status(404).json({ success: false, error: "Prodotto non trovato." });
         if (prod.quantita <= 0) return res.status(400).json({ success: false, error: "Prodotto esaurito." });
 
-        // Scala 1 dall'annuncio
         db.run(`UPDATE prodotti SET quantita = quantita - 1 WHERE id = ?`, [prodottoId], (updateErr) => {
             if (updateErr) return res.status(500).json({ success: false, error: "Errore durante l'ordine." });
             
-            // Se collegato a un prodotto padre in magazzino, scala 1 anche dal magazzino
             if (prod.prodotto_padre_id) {
                 db.run(`UPDATE prodotti SET quantita = MAX(0, quantita - 1) WHERE id = ?`, [prod.prodotto_padre_id]);
             }
@@ -342,7 +379,6 @@ app.post('/api/plc/scansione', verifyToken, (req, res) => {
     });
 });
 
-// Endpoint per registrare l'acquisto di un annuncio e scalare sia l'annuncio sia la giacenza magazzino
 app.post('/api/prodotti/acquista/:id', verifyToken, (req, res) => {
     const annuncioId = req.params.id;
 
@@ -350,58 +386,20 @@ app.post('/api/prodotti/acquista/:id', verifyToken, (req, res) => {
         if (err || !item) return res.status(404).json({ error: 'Annuncio non trovato' });
         if (item.quantita <= 0) return res.status(400).json({ error: 'Quantità esaurita (Sold Out)' });
 
-        // 1. Riduci la quantità dell'annuncio di 1
         db.run('UPDATE prodotti SET quantita = quantita - 1 WHERE id = ?', [annuncioId], (updateErr) => {
             if (updateErr) return res.status(500).json({ error: updateErr.message });
 
-            // 2. Se collegato a un prodotto padre in inventario, riduci la quantità anche da lì
             if (item.prodotto_padre_id) {
                 db.run('UPDATE prodotti SET quantita = MAX(0, quantita - 1) WHERE id = ?', [item.prodotto_padre_id]);
             }
 
-            // 3. Notifica via WebSocket
             io.emit('inventario_aggiornato');
             res.json({ success: true, message: 'Vendita registrata e inventario aggiornato' });
         });
     });
 });
 
+// Avvio Server
 server.listen(PORT, () => {
     console.log(`Server avviato e in ascolto sulla porta ${PORT}`);
-});
-// API Pubblica / Aggiorna Annuncio
-app.post('/api/annunci/pubblica', autenticaToken, (req, res) => {
-    const { prodotto_id, categoria_shop, prezzo, quantita_annuncio, url_immagine, descrizione } = req.body;
-
-    if (!prodotto_id) {
-        return res.status(400).json({ error: 'Prodotto non selezionato' });
-    }
-
-    const query = `
-        UPDATE prodotti 
-        SET categoria_shop = ?, prezzo = ?, immagine = ?, descrizione = ?, pubblicato_shop = 1 
-        WHERE id = ?
-    `;
-
-    db.run(query, [categoria_shop, prezzo, url_immagine, descrizione, prodotto_id], function(err) {
-        if (err) {
-            return res.status(500).json({ error: 'Errore durante la pubblicazione dell\'annuncio' });
-        }
-        io.emit('inventario_aggiornato');
-        res.json({ success: true, message: 'Annuncio pubblicato con successo nello shop!' });
-    });
-});
-
-// API Rimuovi Annuncio dallo Shop
-app.delete('/api/annunci/rimuovi/:id', autenticaToken, (req, res) => {
-    const id = req.params.id;
-    const query = `UPDATE prodotti SET pubblicato_shop = 0 WHERE id = ?`;
-
-    db.run(query, [id], function(err) {
-        if (err) {
-            return res.status(500).json({ error: 'Errore nella rimozione dell\'annuncio' });
-        }
-        io.emit('inventario_aggiornato');
-        res.json({ success: true });
-    });
 });
