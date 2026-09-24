@@ -44,7 +44,8 @@ db.serialize(() => {
         quantita INTEGER DEFAULT 0,
         prezzo REAL DEFAULT 0,
         immagine TEXT,
-        descrizione TEXT
+        descrizione TEXT,
+        prodotto_padre_id INTEGER
     )`);
 
     db.run(`CREATE TABLE IF NOT EXISTS categorie (
@@ -360,34 +361,30 @@ app.post('/api/plc/scansione', verifyToken, (req, res) => {
     });
 });
 
-server.listen(PORT, () => {
-    console.log(`Server avviato e in ascolto sulla porta ${PORT}`);
-});
-// Endpoint per simulare/registrare l'acquisto di un annuncio
-app.post('/api/prodotti/acquista/:id', verificaToken, async (req, res) => {
+// Endpoint per registrare l'acquisto di un annuncio e scalare la giacenza
+app.post('/api/prodotti/acquista/:id', verifyToken, (req, res) => {
     const annuncioId = req.params.id;
 
-    try {
-        // 1. Trova l'annuncio
-        const [annuncio] = await db.query('SELECT * FROM prodotti WHERE id = ?', [annuncioId]);
-        if (!annuncio || annuncio.length === 0) return res.status(404).json({ error: 'Annuncio non trovato' });
-
-        const item = annuncio[0];
+    db.get('SELECT * FROM prodotti WHERE id = ?', [annuncioId], (err, item) => {
+        if (err || !item) return res.status(404).json({ error: 'Annuncio non trovato' });
         if (item.quantita <= 0) return res.status(400).json({ error: 'Quantità esaurita nello shop' });
 
-        // 2. Riduci la quantità dell'annuncio
-        await db.query('UPDATE prodotti SET quantita = quantita - 1 WHERE id = ?', [annuncioId]);
+        // 1. Riduci la quantità dell'annuncio di 1
+        db.run('UPDATE prodotti SET quantita = quantita - 1 WHERE id = ?', [annuncioId], (updateErr) => {
+            if (updateErr) return res.status(500).json({ error: updateErr.message });
 
-        // 3. Riduci di 1 la quantità anche dal prodotto originale in inventario (se collegato)
-        if (item.prodotto_padre_id) {
-            await db.query('UPDATE prodotti SET quantita = GREATEST(0, quantita - 1) WHERE id = ?', [item.prodotto_padre_id]);
-        }
+            // 2. Se collegato a un prodotto padre in inventario, riduci la quantità anche da lì
+            if (item.prodotto_padre_id) {
+                db.run('UPDATE prodotti SET quantita = MAX(0, quantita - 1) WHERE id = ?', [item.prodotto_padre_id]);
+            }
 
-        // 4. Notifica via WebSocket l'aggiornamento
-        io.emit('inventario_aggiornato');
+            // 3. Notifica via WebSocket
+            io.emit('inventario_aggiornato');
+            res.json({ success: true, message: 'Vendita registrata e inventario aggiornato' });
+        });
+    });
+});
 
-        res.json({ success: true, message: 'Vendita registrata e inventario aggiornato' });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+server.listen(PORT, () => {
+    console.log(`Server avviato e in ascolto sulla porta ${PORT}`);
 });
