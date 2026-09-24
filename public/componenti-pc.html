@@ -1,93 +1,85 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Componenti PC & Schede Madri - SK GROUP SYSTEM</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
-  <style>
-    /* Stile fedele alla Home Page dello screenshot */
-    body {
-      background-color: #0b1021; /* Sfondo scuro navy */
-      color: #ffffff;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    }
-    .navbar-custom {
-      background-color: #070a14;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    }
-    .card-prodotto {
-      background: #12182d;
-      border: 1px solid #1e2942;
-      border-radius: 12px;
-      transition: transform 0.2s;
-    }
-    .card-prodotto:hover {
-      transform: translateY(-5px);
-      border-color: #2563eb;
-    }
-    .btn-blue {
-      background-color: #2563eb;
-      color: #fff;
-      border: none;
-      font-weight: 600;
-    }
-    .btn-blue:hover {
-      background-color: #1d4ed8;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <title>Sistemi PLC - SK GROUP SYSTEM</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #0b0f19; color: #f8fafc; font-family: sans-serif; }
+        .glass-card { background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(255, 255, 255, 0.1); backdrop-filter: blur(12px); }
+    </style>
 </head>
 <body>
 
-  <!-- Navbar originale SK GROUP SYSTEM -->
-  <nav class="navbar navbar-expand-lg navbar-dark navbar-custom px-4">
-    <a class="navbar-brand fw-bold text-primary" href="index.html">
-      <span class="badge bg-primary me-2">SK</span> SK GROUP SYSTEM
-    </a>
-    <div class="collapse navbar-collapse justify-content-end">
-      <ul class="navbar-nav gap-3">
-        <li class="nav-item"><a class="nav-link text-light" href="index.html">Home</a></li>
-        <li class="nav-item"><a class="nav-link text-light" href="componenti-pc.html">Componenti PC</a></li>
-        <li class="nav-item"><a class="nav-link text-light" href="assemblaggio-custom-pc.html">Custom PC</a></li>
-        <li class="nav-item"><a class="nav-link text-light" href="sistemi-plc.html">Sistemi PLC</a></li>
-      </ul>
-    </div>
-  </nav>
+    <!-- Header / Navbar stile Home Page -->
+    <header class="flex justify-between items-center px-10 py-6 border-b border-slate-800 glass-card">
+        <div class="flex items-center space-x-3">
+            <div class="bg-blue-600 text-white font-bold p-2 rounded-lg">SK</div>
+            <span class="font-extrabold tracking-wider text-xl">SK GROUP SYSTEM</span>
+        </div>
+        <nav class="space-x-6 text-sm text-slate-300">
+            <a href="index.html" class="hover:text-blue-400">Home</a>
+            <a href="componenti-pc.html" class="hover:text-blue-400">Componenti PC</a>
+            <a href="sistemi-plc.html" class="text-blue-500 font-bold">Sistemi PLC</a>
+            <a href="login.html" class="hover:text-blue-400">Area Lavoratori</a>
+        </nav>
+    </header>
 
-  <!-- Banner Categoria -->
-  <div class="container text-center my-5 py-4">
-    <span class="badge bg-dark border border-primary text-primary px-3 py-2 mb-3">CATALOGO DEDICATO</span>
-    <h1 class="fw-bold">Componenti PC & Schede Madri</h1>
-    <p class="text-secondary">Esplora i nostri componenti selezionati per alte prestazioni.</p>
-  </div>
+    <!-- Main Content Grid -->
+    <main class="max-w-7xl mx-auto px-6 py-12">
+        <h1 class="text-3xl font-extrabold mb-8 text-center text-blue-400">Catalogo Annunci Disponibili</h1>
+        
+        <div id="grid-prodotti" class="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <!-- Gli annunci verranno caricati qui via JavaScript -->
+        </div>
+    </main>
 
-  <!-- Container Prodotti Dinamici -->
-  <div class="container my-5">
-    <div class="row g-4" id="grigliaProdotti">
-      <!-- Gli annunci caricati dal database per QUESTA categoria appaiono qui -->
-    </div>
-  </div>
+    <script>
+        async function caricaAnnunci() {
+            const res = await fetch('/api/prodotti');
+            const prodotti = await res.json();
+            const container = document.getElementById('grid-prodotti');
+            container.innerHTML = '';
 
-  <script>
-    // Fetch per caricare solo gli annunci della categoria corrente
-    fetch('/api/annunci?categoria=componenti-pc')
-      .then(res => res.json())
-      .then(annunci => {
-        const container = document.getElementById('grigliaProdotti');
-        container.innerHTML = annunci.map(item => `
-          <div class="col-md-4">
-            <div class="card card-prodotto p-3 text-light">
-              <img src="${item.immagine || 'placeholder.jpg'}" class="card-img-top rounded mb-3" style="height: 200px; object-fit: cover;">
-              <h5 class="fw-bold">${item.titolo}</h5>
-              <p class="text-secondary small">${item.descrizione}</p>
-              <div class="d-flex justify-content-between align-items-center mt-3">
-                <span class="fs-5 fw-bold text-primary">€${parseFloat(item.prezzo).toFixed(2)}</span>
-                <button class="btn btn-blue px-3">Dettagli</button>
-              </div>
-            </div>
-          </div>
-        `).join('');
-      });
-  </script>
+            prodotti.forEach(p => {
+                const esaurito = p.quantita <= 0;
+                container.innerHTML += `
+                    <div class="glass-card rounded-2xl p-6 flex flex-col justify-between">
+                        <div>
+                            <img src="${p.immagine || 'https://via.placeholder.com/300'}" class="w-full h-48 object-cover rounded-xl mb-4">
+                            <span class="text-xs text-blue-400 font-bold uppercase">${p.categoria}</span>
+                            <h3 class="text-xl font-bold mt-1 mb-2">${p.nome}</h3>
+                            <p class="text-slate-400 text-sm mb-4">${p.descrizione || 'Nessuna descrizione.'}</p>
+                        </div>
+                        <div>
+                            <div class="flex justify-between items-center mb-4">
+                                <span class="text-2xl font-black text-white">€${p.prezzo}</span>
+                                <span class="text-sm font-semibold ${esaurito ? 'text-red-500' : 'text-emerald-400'}">
+                                    ${esaurito ? 'ESAURITO' : 'Disponibile (' + p.quantita + ')'}
+                                </span>
+                            </div>
+                            <button onclick="acquista(${p.id})" ${esaurito ? 'disabled' : ''} 
+                                class="w-full py-3 rounded-xl font-bold ${esaurito ? 'bg-slate-700 text-slate-500 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-500 text-white transition'}">
+                                ${esaurito ? 'Non Disponibile' : 'Acquista Ora'}
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        async function acquista(id) {
+            const res = await fetch(`/api/prodotti/acquista/${id}`, { method: 'POST' });
+            const data = await res.json();
+            if (data.success) {
+                alert(data.message);
+                caricaAnnunci();
+            } else {
+                alert(data.error);
+            }
+        }
+
+        caricaAnnunci();
+    </script>
 </body>
 </html>

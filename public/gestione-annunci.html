@@ -2,197 +2,219 @@
 <html lang="it">
 <head>
     <meta charset="UTF-8">
-    <title>Gestione Annunci Shop - PLC System</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestione Annunci - SK Group System</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="/socket.io/socket.io.js"></script>
 </head>
-<body class="bg-slate-100 p-6 min-h-screen">
+<body class="bg-slate-950 text-slate-100 min-h-screen">
 
-    <script>
-        if (!localStorage.getItem('token')) {
-            window.location.replace('/login.html');
-        }
-    </script>
-
-    <div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col gap-2"></div>
-
-    <div class="max-w-6xl mx-auto space-y-6">
-        
-        <!-- Header -->
-        <div class="flex justify-between items-center bg-white p-5 rounded-2xl shadow-sm border border-gray-200">
-            <div class="flex items-center gap-3">
-                <div class="p-3 bg-amber-100 text-amber-600 rounded-xl text-xl">📢</div>
-                <div>
-                    <h1 class="text-xl font-bold text-slate-800">Gestione Annunci e Shop</h1>
-                    <p class="text-xs text-gray-500">Visualizza, modifica e gestisci le vetrine dei prodotti pubblicati</p>
-                </div>
-            </div>
-            
-            <div class="flex items-center gap-3">
-                <a href="/dashboard.html" class="text-xs bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-xl font-bold transition flex items-center gap-1">
-                    ⬅️ Torna alla Dashboard
-                </a>
-            </div>
+    <!-- Navbar -->
+    <header class="bg-slate-900 border-b border-slate-800 px-6 py-4 flex justify-between items-center">
+        <div class="flex items-center space-x-3">
+            <div class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center font-bold">SK</div>
+            <h1 class="text-lg font-bold">Pannello Gestione Annunci</h1>
         </div>
-
-        <!-- Vetrina Annunci (Griglia Card Grafiche) -->
-        <div class="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
-            <div class="flex justify-between items-center border-b pb-4">
-                <h2 class="text-base font-bold text-slate-800">🛍️ Vetrine e Annunci Attivi</h2>
-                <span id="total-annunci-badge" class="text-xs font-bold bg-amber-100 text-amber-800 px-3 py-1 rounded-full">0 Annunci</span>
-            </div>
-
-            <div id="griglia-annunci" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                <!-- Le card degli annunci verranno caricate qui dinamicamente -->
-            </div>
+        <div class="flex items-center space-x-4">
+            <a href="dashboard.html" class="px-4 py-2 text-sm bg-slate-800 hover:bg-slate-700 rounded-lg transition">
+                ← Torna alla Dashboard
+            </a>
+            <button onclick="logout()" class="px-4 py-2 text-sm bg-red-600 hover:bg-red-700 rounded-lg transition">
+                Logout
+            </button>
         </div>
+    </header>
 
-    </div>
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
 
-    <!-- MODALE MODIFICA RAPIDA ANNUNCIO -->
-    <div id="modal-modifica" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-        <div class="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl space-y-4">
-            <div class="flex justify-between items-center border-b pb-3">
-                <h3 class="font-bold text-slate-800 text-sm">✏️ Modifica Annuncio</h3>
-                <button onclick="chiudiModalModifica()" class="text-gray-400 hover:text-gray-600 font-bold text-lg">✕</button>
-            </div>
-            <form onsubmit="salvaModificaAnnuncio(event)" class="space-y-3 text-xs">
-                <input type="hidden" id="m-id">
+        <!-- Form Pubblica Annuncio -->
+        <section class="bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-xl">
+            <h2 class="text-xl font-bold text-white mb-6 flex items-center">
+                <span class="mr-2">📣</span> Pubblica Nuovo Annuncio
+            </h2>
+            <form id="form-annuncio" onsubmit="pubblicaAnnuncio(event)" class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                    <label class="block font-semibold text-gray-600 mb-1">Titolo Annuncio</label>
-                    <input id="m-nome" type="text" required class="w-full border p-2 rounded-lg outline-none">
+                    <label class="block text-xs font-semibold text-slate-400 mb-1">Seleziona Prodotto Padre</label>
+                    <select id="prodotto-padre" onchange="autocompilaDaMagazzino()" required class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-blue-500">
+                        <option value="">-- Seleziona un Prodotto dal Magazzino --</option>
+                    </select>
                 </div>
+
                 <div>
-                    <label class="block font-semibold text-gray-600 mb-1">Prezzo (€)</label>
-                    <input id="m-prezzo" type="number" step="0.01" required class="w-full border p-2 rounded-lg outline-none">
+                    <label class="block text-xs font-semibold text-slate-400 mb-1">Categoria Annuncio</label>
+                    <select id="categoria-annuncio" required class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-blue-500">
+                        <option value="componenti-pc">Componenti PC & Schede Madri</option>
+                        <option value="custom-pc">Costruzione Custom PC</option>
+                        <option value="sistemi-plc">Sistemi PLC & Componenti</option>
+                    </select>
                 </div>
+
                 <div>
-                    <label class="block font-semibold text-gray-600 mb-1">Quantità da Vendere</label>
-                    <input id="m-quantita" type="number" required class="w-full border p-2 rounded-lg outline-none">
+                    <label class="block text-xs font-semibold text-slate-400 mb-1">Prezzo (€)</label>
+                    <input type="number" step="0.01" id="prezzo-annuncio" required class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-blue-500" placeholder="0.00">
                 </div>
+
                 <div>
-                    <label class="block font-semibold text-gray-600 mb-1">URL Immagine</label>
-                    <input id="m-img" type="text" class="w-full border p-2 rounded-lg outline-none">
+                    <label class="block text-xs font-semibold text-slate-400 mb-1">URL Immagine</label>
+                    <input type="text" id="immagine-annuncio" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-blue-500" placeholder="https://...">
                 </div>
-                <div>
-                    <label class="block font-semibold text-gray-600 mb-1">Descrizione</label>
-                    <textarea id="m-desc" rows="2" class="w-full border p-2 rounded-lg outline-none"></textarea>
+
+                <div class="md:col-span-2">
+                    <label class="block text-xs font-semibold text-slate-400 mb-1">Descrizione Annuncio</label>
+                    <textarea id="descrizione-annuncio" rows="3" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-blue-500" placeholder="Inserisci i dettagli dell'annuncio..."></textarea>
                 </div>
-                <div class="flex justify-end gap-2 pt-2">
-                    <button type="button" onclick="chiudiModalModifica()" class="bg-gray-200 text-slate-700 px-4 py-2 rounded-xl font-semibold">Annulla</button>
-                    <button type="submit" class="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-xl font-bold shadow-md transition">Salva Cambiamenti</button>
+
+                <div class="md:col-span-2 flex justify-end">
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-2.5 rounded-lg transition shadow-lg shadow-blue-600/30">
+                        Pubblica Annuncio
+                    </button>
                 </div>
             </form>
-        </div>
-    </div>
+        </section>
+
+        <!-- Tabella Annunci Attivi -->
+        <section class="bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-xl">
+            <h2 class="text-xl font-bold text-white mb-6 flex items-center">
+                <span class="mr-2">📋</span> Annunci Pubblicati
+            </h2>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm">
+                    <thead class="bg-slate-800/60 text-slate-400 text-xs uppercase border-b border-slate-700">
+                        <tr>
+                            <th class="p-3">Prodotto</th>
+                            <th class="p-3">Categoria</th>
+                            <th class="p-3">Prezzo</th>
+                            <th class="p-3">Giacenza</th>
+                            <th class="p-3 text-right">Azioni</th>
+                        </tr>
+                    </thead>
+                    <tbody id="lista-annunci" class="divide-y divide-slate-800">
+                        <!-- Caricato via JS -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+    </main>
 
     <script>
         const socket = io();
-        let listaAnnunci = [];
+        const token = localStorage.getItem('token');
+        const userRuolo = localStorage.getItem('ruolo');
 
-        function mostraNotifica(messaggio, tipo = 'success') {
-            const container = document.getElementById('toast-container');
-            const toast = document.createElement('div');
-            toast.className = `p-3 px-4 rounded-xl shadow-xl text-xs font-semibold border-l-4 transition-all duration-300 ${tipo === 'success' ? 'bg-slate-800 text-white border-amber-500' : 'bg-red-600 text-white border-red-700'}`;
-            toast.textContent = messaggio;
-            container.appendChild(toast);
-            setTimeout(() => toast.remove(), 3000);
+        // Controllo Accesso
+        if (!token || (userRuolo !== 'Admin' && userRuolo !== 'Ufficio')) {
+            alert('Accesso Negato! Sezione riservata ad Admin e Ufficio.');
+            window.location.href = 'dashboard.html';
         }
 
-        async function caricaAnnunci() {
-            const res = await fetch('/api/prodotti', { headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') } });
-            if (!res.ok) return;
-            const prodotti = await res.json();
-            listaAnnunci = prodotti.filter(p => p.prezzo !== null && p.prezzo !== undefined);
-            
-            document.getElementById('total-annunci-badge').textContent = `${listaAnnunci.length} Annunci`;
-            
-            const container = document.getElementById('griglia-annunci');
-            container.innerHTML = '';
-
-            if (listaAnnunci.length === 0) {
-                container.innerHTML = `<div class="col-span-full text-center py-8 text-gray-400 text-xs">Nessun annuncio pubblicato allo shop al momento.</div>`;
-                return;
+        async function caricaProdottiPerSelect() {
+            try {
+                const res = await fetch('/api/prodotti', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const prodotti = await res.json();
+                const select = document.getElementById('prodotto-padre');
+                
+                select.innerHTML = '<option value="">-- Seleziona un Prodotto dal Magazzino --</option>';
+                prodotti.forEach(p => {
+                    select.innerHTML += `<option value="${p.id}" data-prezzo="${p.prezzo}" data-img="${p.immagine || ''}" data-desc="${p.descrizione || ''}">${p.nome} (Qta: ${p.quantita})</option>`;
+                });
+            } catch (err) {
+                console.error('Errore caricamento prodotti:', err);
             }
-
-            listaAnnunci.forEach(a => {
-                const imgUrl = a.immagine || 'https://via.placeholder.com/300x200?text=Nessuna+Immagine';
-                container.innerHTML += `
-                    <div class="border rounded-2xl overflow-hidden bg-white shadow-sm hover:shadow-md transition flex flex-col justify-between">
-                        <div>
-                            <div class="h-36 bg-gray-100 overflow-hidden relative">
-                                <img src="${imgUrl}" alt="${a.nome}" class="w-full h-full object-cover">
-                                <span class="absolute top-2 right-2 bg-slate-900/80 text-white text-[10px] font-bold px-2 py-0.5 rounded-full backdrop-blur-sm">
-                                    Q.tà: ${a.quantita}
-                                </span>
-                            </div>
-                            <div class="p-3 space-y-1.5">
-                                <span class="text-[10px] font-extrabold uppercase text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 inline-block">${a.categoria || 'Generico'}</span>
-                                <h3 class="font-bold text-slate-800 text-xs line-clamp-1">${a.nome}</h3>
-                                <p class="text-[11px] text-gray-500 line-clamp-2">${a.descrizione || 'Nessuna descrizione specificata.'}</p>
-                                <div class="text-sm font-extrabold text-emerald-600 pt-1">${parseFloat(a.prezzo).toFixed(2)} €</div>
-                            </div>
-                        </div>
-                        <div class="p-3 border-t bg-slate-50 flex gap-2">
-                            <button onclick='apriModalModifica(${JSON.stringify(a)})' class="w-1/2 bg-amber-500 hover:bg-amber-600 text-white font-bold py-1.5 rounded-lg text-[11px] transition">✏️ Modifica</button>
-                            <button onclick="simulaAcquisto(${a.id})" class="w-1/2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-1.5 rounded-lg text-[11px] transition">🛒 Simula VENDITA (-1)</button>
-                        </div>
-                    </div>
-                `;
-            });
         }
 
-        function apriModalModifica(a) {
-            document.getElementById('m-id').value = a.id;
-            document.getElementById('m-nome').value = a.nome;
-            document.getElementById('m-prezzo').value = a.prezzo;
-            document.getElementById('m-quantita').value = a.quantita;
-            document.getElementById('m-img').value = a.immagine || '';
-            document.getElementById('m-desc').value = a.descrizione || '';
-            document.getElementById('modal-modifica').classList.remove('hidden');
+        function autocompilaDaMagazzino() {
+            const select = document.getElementById('prodotto-padre');
+            const selected = select.options[select.selectedIndex];
+            if (selected && selected.value) {
+                document.getElementById('prezzo-annuncio').value = selected.dataset.prezzo || '';
+                document.getElementById('immagine-annuncio').value = selected.dataset.img || '';
+                document.getElementById('descrizione-annuncio').value = selected.dataset.desc || '';
+            }
         }
 
-        function chiudiModalModifica() {
-            document.getElementById('modal-modifica').classList.add('hidden');
+        async function caricaAnnunciAttivi() {
+            try {
+                const res = await fetch('/api/prodotti', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const prodotti = await res.json();
+                const tbody = document.getElementById('lista-annunci');
+                tbody.innerHTML = '';
+
+                prodotti.forEach(p => {
+                    tbody.innerHTML += `
+                        <tr class="hover:bg-slate-800/40">
+                            <td class="p-3 font-semibold">${p.nome}</td>
+                            <td class="p-3 text-slate-400">${p.categoria}</td>
+                            <td class="p-3 text-emerald-400">€ ${p.prezzo.toFixed(2)}</td>
+                            <td class="p-3">${p.quantita}</td>
+                            <td class="p-3 text-right">
+                                <button onclick="eliminaAnnuncio(${p.id})" class="px-3 py-1 bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white rounded text-xs transition">
+                                    Elimina
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                });
+            } catch (err) {
+                console.error('Errore caricamento annunci:', err);
+            }
         }
 
-        async function salvaModificaAnnuncio(e) {
+        async function pubblicaAnnuncio(e) {
             e.preventDefault();
-            const id = document.getElementById('m-id').value;
-            const nome = document.getElementById('m-nome').value;
-            const prezzo = document.getElementById('m-prezzo').value;
-            const quantita = document.getElementById('m-quantita').value;
-            const immagine = document.getElementById('m-img').value;
-            const descrizione = document.getElementById('m-desc').value;
+            const payload = {
+                prodottoId: document.getElementById('prodotto-padre').value,
+                categoria: document.getElementById('categoria-annuncio').value,
+                prezzo: parseFloat(document.getElementById('prezzo-annuncio').value),
+                urlImmagine: document.getElementById('immagine-annuncio').value,
+                descrizione: document.getElementById('descrizione-annuncio').value
+            };
 
-            const res = await fetch(`/api/prodotti/${id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('token') },
-                body: JSON.stringify({ nome, prezzo, quantita, immagine, descrizione })
-            });
-
-            if (res.ok) {
-                chiudiModalModifica();
-                mostraNotifica('Annuncio aggiornato!');
-                caricaAnnunci();
-            }
-        }
-
-        async function simulaAcquisto(id) {
-            const res = await fetch(`/api/prodotti/acquista/${id}`, {
+            const res = await fetch('/api/annunci', {
                 method: 'POST',
-                headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(payload)
             });
+
             if (res.ok) {
-                mostraNotifica('Vendita registrata! Scalato dall\'inventario (-1)');
-                caricaAnnunci();
+                alert('Annuncio pubblicato con successo!');
+                document.getElementById('form-annuncio').reset();
+                caricaAnnunciAttivi();
             } else {
-                mostraNotifica('Prodotto esaurito o errore', 'error');
+                const data = await res.json();
+                alert('Errore: ' + data.error);
             }
         }
 
-        socket.on('inventario_aggiornato', caricaAnnunci);
-        caricaAnnunci();
+        async function eliminaAnnuncio(id) {
+            if (!confirm('Rimuovere questo annuncio?')) return;
+            const res = await fetch(`/api/prodotti/annuncio/${id}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) caricaAnnunciAttivi();
+        }
+
+        function logout() {
+            localStorage.clear();
+            window.location.href = 'login.html';
+        }
+
+        socket.on('inventario_aggiornato', () => {
+            caricaProdottiPerSelect();
+            caricaAnnunciAttivi();
+        });
+
+        // Inizializzazione
+        caricaProdottiPerSelect();
+        caricaAnnunciAttivi();
     </script>
 </body>
 </html>

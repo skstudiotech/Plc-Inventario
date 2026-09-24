@@ -225,7 +225,6 @@ app.post('/api/prodotti', verifyToken, (req, res) => {
     const { prodotto_id, codice_barre, nome, categoria, prezzo, quantita, immagine, descrizione } = req.body;
     const qtyInput = parseInt(quantita) || 1;
 
-    // Se si sta pubblicando un annuncio da un prodotto esistente nel DB
     if (prodotto_id) {
         db.get(`SELECT * FROM prodotti WHERE id = ?`, [prodotto_id], (err, dbProd) => {
             if (err || !dbProd) return res.status(400).json({ error: "Prodotto selezionato non trovato nel database." });
