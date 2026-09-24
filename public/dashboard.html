@@ -20,6 +20,11 @@
         if (!localStorage.getItem('token')) {
             window.location.replace('/login.html');
         }
+        window.addEventListener('pageshow', function(event) {
+            if (event.persisted || performance.getEntriesByType("navigation")[0].type === "back_forward") {
+                window.location.replace('/login.html');
+            }
+        });
     </script>
 
     <!-- TOAST CONTAINER -->
@@ -396,7 +401,6 @@
         const badgeElem = document.getElementById('role-badge');
         badgeElem.textContent = ruolo;
 
-        // Gestione permessi e visualizzazione interfaccia
         if (ruolo === 'Visualizzatore') {
             document.getElementById('box-creazione').classList.add('hidden');
             document.getElementById('box-simulatore').classList.add('hidden');
@@ -734,9 +738,12 @@
             const descrizione = document.getElementById('shop-desc').value;
             const token = localStorage.getItem('token');
 
-            const res = await fetch('/api/prodotti', {
+            const res = await fetch('/api/shop/annunci', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                headers: { 
+                    'Content-Type': 'application/json', 
+                    'Authorization': 'Bearer ' + token 
+                },
                 body: JSON.stringify({ nome, categoria, prezzo, quantita, immagine, descrizione })
             });
 
@@ -750,7 +757,7 @@
                 caricaProdotti();
             } else {
                 const data = await res.json();
-                mostraNotifica(data.error || 'Errore pubblicazione', 'error');
+                mostraNotifica(data.error || 'Errore durante la pubblicazione', 'error');
             }
         }
 
@@ -903,16 +910,6 @@
         socket.on('inventario_aggiornato', caricaProdotti);
         socket.on('categorie_aggiornate', caricaCategorie);
         caricaCategorie();
-    </script>
-    <script>
-        if (!localStorage.getItem('token')) {
-            window.location.replace('/login.html');
-        }
-        window.addEventListener('pageshow', function(event) {
-            if (event.persisted || performance.getEntriesByType("navigation")[0].type === "back_forward") {
-                window.location.replace('/login.html');
-            }
-        });
     </script>
 </body>
 </html>

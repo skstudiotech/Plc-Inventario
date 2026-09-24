@@ -16,7 +16,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Middleware di autenticazione token JWT
+// Middleware Autenticazione JWT
 function autenticaToken(req, res, next) {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
@@ -30,12 +30,7 @@ function autenticaToken(req, res, next) {
     });
 }
 
-// Socket.io connection
-io.on('connection', (socket) => {
-    console.log('Utente connesso via Socket.io');
-});
-
-// --- ROTTA DI LOGIN ---
+// --- ROTTA LOGIN ---
 app.post('/api/login', (req, res) => {
     const { username, password } = req.body;
 
@@ -56,90 +51,11 @@ app.post('/api/login', (req, res) => {
             { expiresIn: '8h' }
         );
 
-        res.json({
-            token,
-            username: user.username,
-            ruolo: user.ruolo
-        });
+        res.json({ token, username: user.username, ruolo: user.ruolo });
     });
 });
 
-// --- ROTTE GESTIONE UTENTI (ADMIN) ---
-app.get('/api/admin/utenti', autenticaToken, (req, res) => {
-    if (req.user.ruolo !== 'Admin') return res.status(403).json({ error: 'Accesso negato.' });
-    db.all(`SELECT id, username, ruolo FROM utenti`, [], (err, rows) => {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json(rows);
-    });
-});
-
-app.post('/api/admin/crea-utente', autenticaToken, async (req, res) => {
-    if (req.user.ruolo !== 'Admin') return res.status(403).json({ error: 'Accesso negato.' });
-    const { newUsername, newPassword, ruolo } = req.body;
-    
-    if (!newUsername || !newPassword) return res.status(400).json({ error: 'Campi obbligatori mancanti.' });
-
-    const passwordHash = await bcrypt.hash(newPassword, 10);
-    db.run(`INSERT INTO utenti (username, password, ruolo) VALUES (?, ?, ?)`, [newUsername, passwordHash, ruolo || 'Operatore'], function(err) {
-        if (err) return res.status(400).json({ error: 'Username già in uso.' });
-        res.json({ message: 'Utente creato con successo.' });
-    });
-});
-
-app.put('/api/admin/cambia-ruolo', autenticaToken, (req, res) => {
-    if (req.user.ruolo !== 'Admin') return res.status(403).json({ error: 'Accesso negato.' });
-    const { id, nuovoRuolo } = req.body;
-    db.run(`UPDATE utenti SET ruolo = ? WHERE id = ?`, [nuovoRuolo, id], function(err) {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json({ message: 'Ruolo aggiornato.' });
-    });
-});
-
-app.delete('/api/admin/elimina-utente/:id', autenticaToken, (req, res) => {
-    if (req.user.ruolo !== 'Admin') return res.status(403).json({ error: 'Accesso negato.' });
-    db.run(`DELETE FROM utenti WHERE id = ? AND username != 'admin'`, [req.params.id], function(err) {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json({ message: 'Utente eliminato.' });
-    });
-});
-
-app.post('/api/cambia-password', autenticaToken, async (req, res) => {
-    const { nuovaPassword } = req.body;
-    const passwordHash = await bcrypt.hash(nuovaPassword, 10);
-    db.run(`UPDATE utenti SET password = ? WHERE id = ?`, [passwordHash, req.user.id], function(err) {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json({ message: 'Password aggiornata.' });
-    });
-});
-
-// --- ROTTE CATEGORIE ---
-app.get('/api/categorie', autenticaToken, (req, res) => {
-    db.all(`SELECT * FROM categorie ORDER BY nome ASC`, [], (err, rows) => {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json(rows);
-    });
-});
-
-app.post('/api/categorie', autenticaToken, (req, res) => {
-    const { nome, colore } = req.body;
-    if (!nome) return res.status(400).json({ error: "Nome obbligatorio." });
-
-    db.run(`INSERT INTO categorie (nome, colore) VALUES (?, ?)`, [nome.trim(), colore || '#3b82f6'], function(err) {
-        if (err) return res.status(400).json({ error: "Categoria esistente." });
-        io.emit('categorie_aggiornate');
-        res.json({ id: this.lastID, nome: nome.trim(), colore });
-    });
-});
-
-app.delete('/api/categorie/:id', autenticaToken, (req, res) => {
-    db.run(`DELETE FROM categorie WHERE id = ?`, [req.params.id], function(err) {
-        if (err) return res.status(500).json({ error: err.message });
-        io.emit('categorie_aggiornate');
-        res.json({ message: "Categoria eliminata." });
-    });
-});
-
-// --- ROTTE PRODOTTI ---
+// --- ROTTE SHOP ED INVENTARIO ---
 app.get('/api/prodotti', autenticaToken, (req, res) => {
     db.all(`SELECT * FROM prodotti ORDER BY id DESC`, [], (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
@@ -147,31 +63,45 @@ app.get('/api/prodotti', autenticaToken, (req, res) => {
     });
 });
 
-app.post('/api/prodotti', autenticaToken, (req, res) => {
-    let { codice_barre, nome, quantita, categoria } = req.body;
-    if (!codice_barre) codice_barre = Math.floor(10000000 + Math.random() * 90000000).toString();
+app.post('/api/shop/annunci', autenticaToken, (req, res) => {
+    const { nome, categoria, prezzo, quantita, immagine, descrizione } = req.body;
 
+    if (!nome || !prezzo) {
+        return res.status(400).json({ error: 'Nome e prezzo sono campi obbligatori.' });
+    }
+
+    const codiceBarre = Math.floor(10000000 + Math.random() * 90000000).toString();
+
+    // Inserisce il prodotto in magazzino
     db.run(
         `INSERT INTO prodotti (codice_barre, nome, quantita, categoria) VALUES (?, ?, ?, ?)`,
-        [codice_barre, nome, quantita || 1, categoria || 'Generico'],
+        [codiceBarre, nome, quantita || 1, categoria || 'Generico'],
         function(err) {
             if (err) return res.status(500).json({ error: err.message });
-            io.emit('inventario_aggiornato');
-            res.json({ id: this.lastID, codice_generato: codice_barre, nome, quantita, categoria });
+            const prodottoId = this.lastID;
+
+            // Inserisce l'annuncio shop collegato
+            db.run(
+                `INSERT INTO annunci_shop (prodotto_id, categoria, prezzo, quantita, immagine, descrizione) VALUES (?, ?, ?, ?, ?, ?)`,
+                [prodottoId, categoria, prezzo, quantita || 1, immagine || '', descrizione || ''],
+                function(errShop) {
+                    if (errShop) return res.status(500).json({ error: errShop.message });
+                    io.emit('inventario_aggiornato');
+                    res.json({ message: 'Annuncio pubblicato con successo nello shop!', id: prodottoId });
+                }
+            );
         }
     );
 });
 
-app.delete('/api/prodotti/:id', autenticaToken, (req, res) => {
-    if (req.user.ruolo !== 'Admin') return res.status(403).json({ error: 'Solo Admin può eliminare.' });
-    db.run(`DELETE FROM prodotti WHERE id = ?`, [req.params.id], function(err) {
+// --- CATEGORIE ---
+app.get('/api/categorie', autenticaToken, (req, res) => {
+    db.all(`SELECT * FROM categorie ORDER BY nome ASC`, [], (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
-        io.emit('inventario_aggiornato');
-        res.json({ message: "Prodotto eliminato." });
+        res.json(rows);
     });
 });
 
-// Reindirizzamento di default
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'login.html'));
 });
