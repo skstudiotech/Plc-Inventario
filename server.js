@@ -233,8 +233,8 @@ app.post('/api/prodotti', verifyToken, (req, res) => {
                 return res.status(400).json({ error: `Quantità non valida! Disponibile a magazzino nel database: ${dbProd.quantita}` });
             }
 
-            db.run(`UPDATE prodotti SET categoria = ?, quantita = ?, prezzo = ?, immagine = ?, descrizione = ? WHERE id = ?`,
-                [categoria, qtyInput, prezzo || 0, immagine || '', descrizione || '', prodotto_id], function(err) {
+            db.run(`UPDATE prodotti SET categoria = ?, quantita = ?, prezzo = ?, immagine = ?, descrizione = ?, prodotto_padre_id = ? WHERE id = ?`,
+                [categoria, qtyInput, prezzo || 0, immagine || '', descrizione || '', dbProd.id, prodotto_id], function(err) {
                 if (err) return res.status(500).json({ error: "Errore nell'aggiornamento dell'annuncio." });
                 io.emit('inventario_aggiornato');
                 res.json({ success: true, id: prodotto_id });

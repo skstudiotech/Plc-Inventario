@@ -27,7 +27,7 @@
 
     <div class="max-w-6xl mx-auto space-y-6">
         
-        <!-- Header (Fedele allo screenshot) -->
+        <!-- Header -->
         <div class="flex justify-between items-center bg-white p-5 rounded-2xl shadow-sm border border-gray-200">
             <div class="flex items-center gap-3">
                 <div class="p-3 bg-blue-100 text-blue-600 rounded-xl text-xl">📦</div>
@@ -44,7 +44,6 @@
                     <span id="role-badge" class="text-[10px] uppercase font-extrabold px-2 py-0.5 rounded text-white"></span>
                 </div>
 
-                <!-- Pulsante Annunci stilizzato come nello screenshot -->
                 <a href="/gestione-annunci.html" id="btn-gestione-annunci" class="hidden text-xs bg-amber-500 hover:bg-amber-600 text-white px-3.5 py-2 rounded-xl font-bold shadow-sm transition flex items-center gap-1">
                     📢 Annunci
                 </a>
@@ -728,13 +727,11 @@
             if (res.status === 401 || res.status === 403) logout();
             const tuttiIProdotti = await res.json();
             
-            // Separiamo i prodotti inventario dagli annunci pubblicati
             listaProdottiGlobal = tuttiIProdotti.filter(p => !p.prezzo);
-            listaAnnunciGlobal = tuttiIProdotti.filter(p => p.prezzo !== null && p.prezzo !== undefined);
+            listaAnnunciGlobal = tuttiIProdotti.filter(p => p.prezzo !== null && p.prezzo !== undefined && p.prezzo > 0);
 
             popolaSelectProdottiDatabase();
 
-            // Tabella INVENTARIO STANDARD
             const tbody = document.getElementById('tabella-prodotti');
             tbody.innerHTML = '';
             if (listaProdottiGlobal.length === 0) {
@@ -764,7 +761,6 @@
                 });
             }
 
-            // Tabella ANNUNCI PUBBLICATI
             const tbodyAnnunci = document.getElementById('tabella-annunci');
             if (tbodyAnnunci) {
                 tbodyAnnunci.innerHTML = '';
