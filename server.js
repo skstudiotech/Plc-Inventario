@@ -251,6 +251,35 @@ app.post('/api/prodotti', verifyToken, (req, res) => {
     }
 });
 
+// Endpoint specifico per pubblicazione Annunci targati su target page
+app.post('/api/annunci', verifyToken, (req, res) => {
+    if (req.user.ruolo !== 'Admin' && req.user.role !== 'admin' && req.user.ruolo !== 'Ufficio' && req.user.role !== 'Ufficio') {
+        return res.status(403).json({ error: "Non hai i permessi necessari." });
+    }
+
+    const { prodottoId, categoria, prezzo, urlImmagine, descrizione } = req.body;
+
+    let targetPage = 'index.html';
+    switch (categoria) {
+        case 'componenti-pc':
+            targetPage = 'componenti-pc.html';
+            break;
+        case 'custom-pc':
+            targetPage = 'assemblaggio-custom-pc.html';
+            break;
+        case 'sistemi-plc':
+            targetPage = 'sistemi-plc.html';
+            break;
+    }
+
+    db.run(`UPDATE prodotti SET categoria = ?, prezzo = ?, immagine = ?, descrizione = ? WHERE id = ?`,
+        [categoria, prezzo || 0, urlImmagine || '', descrizione || '', prodottoId], function(err) {
+            if (err) return res.status(500).json({ error: "Errore durante il salvataggio dell'annuncio." });
+            io.emit('inventario_aggiornato');
+            res.json({ success: true, message: `Annuncio pubblicato con successo per ${targetPage}` });
+        });
+});
+
 // MODIFICA ANNUNCIO / PRODOTTO
 app.put('/api/prodotti/:id', verifyToken, (req, res) => {
     if (req.user.ruolo !== 'Admin' && req.user.role !== 'admin' && req.user.ruolo !== 'Ufficio' && req.user.role !== 'Ufficio') {
@@ -333,32 +362,4 @@ app.post('/api/plc/scansione', verifyToken, (req, res) => {
 
 server.listen(PORT, () => {
     console.log(`Server avviato e in ascolto sulla porta ${PORT}`);
-});
-// Esempio Endpoint Node.js per pubblicare un annuncio nella tabella corretta
-app.post('/api/annunci', async (req, res) => {
-  const { prodottoId, categoria, prezzo, urlImmagine, descrizione } = req.body;
-
-  // Mappatura delle categorie con le rispettive pagine HTML di destinazione
-  let targetPage = '';
-  switch (categoria) {
-    case 'componenti-pc':
-      targetPage = 'componenti-pc.html';
-      break;
-    case 'custom-pc':
-      targetPage = 'assemblaggio-custom-pc.html';
-      break;
-    case 'sistemi-plc':
-      targetPage = 'sistemi-plc.html';
-      break;
-    default:
-      targetPage = 'index.html';
-  }
-
-  // Salvataggio nel Database mantenendo il riferimento della destinazione
-  await db.query(
-    'INSERT INTO annunci (prodotto_id, categoria, target_page, prezzo, immagine, descrizione) VALUES (?, ?, ?, ?, ?, ?)',
-    [prodottoId, categoria, targetPage, prezzo, urlImmagine, descrizione]
-  );
-
-  res.json({ success: true, message: `Annuncio pubblicato su ${targetPage}` });
 });

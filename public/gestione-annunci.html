@@ -10,6 +10,12 @@
   </style>
 </head>
 <body class="p-4">
+  <script>
+    if (!localStorage.getItem('token')) {
+      window.location.replace('/login.html');
+    }
+  </script>
+
   <div class="container">
     <div class="d-flex justify-content-between align-items-center mb-4">
       <h2>Pannello Controllo Annunci Pubblicati</h2>
@@ -19,7 +25,7 @@
     <!-- Modulo di modifica/pubblicazione annunci -->
     <div class="card p-4 card-annuncio mb-4">
       <h4 class="mb-3">📢 Modifica o Pubblica Annuncio</h4>
-      <form id="formAnnuncio">
+      <form id="formAnnuncio" onsubmit="pubblicaAnnuncio(event)">
         <div class="row g-3">
           <div class="col-md-4">
             <label class="form-label">Seleziona Prodotto DB</label>
@@ -60,14 +66,80 @@
             <th>Titolo</th>
             <th>Categoria</th>
             <th>Prezzo</th>
-            <th>Azioni</th>
+            <th class="text-end">Azioni</th>
           </tr>
         </thead>
-        <tbody id="tabellaAnnunci">
-          <!-- Inserimento dinamico annunci con tasti "Elimina" e "Modifica" -->
-        </tbody>
+        <tbody id="tabellaAnnunci"></tbody>
       </table>
     </div>
   </div>
+
+  <script>
+    async function caricaProdottiPerForm() {
+      const res = await fetch('/api/prodotti', {
+        headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+      });
+      const prodotti = await res.json();
+      const sel = document.getElementById('selectProdotto');
+      sel.innerHTML = '<option value="">-- Seleziona Prodotto --</option>';
+      
+      const tbody = document.getElementById('tabellaAnnunci');
+      tbody.innerHTML = '';
+
+      prodotti.forEach(p => {
+        sel.innerHTML += `<option value="${p.id}">${p.nome} (Q.tà: ${p.quantita})</option>`;
+        tbody.innerHTML += `
+          <tr>
+            <td>${p.id}</td>
+            <td><strong>${p.nome}</strong></td>
+            <td><span class="badge bg-info text-dark">${p.categoria}</span></td>
+            <td>€${parseFloat(p.prezzo || 0).toFixed(2)}</td>
+            <td class="text-end">
+              <button onclick="eliminaAnnuncio(${p.id})" class="btn btn-danger btn-sm">Elimina</button>
+            </td>
+          </tr>
+        `;
+      });
+    }
+
+    async function pubblicaAnnuncio(e) {
+      e.preventDefault();
+      const prodottoId = document.getElementById('selectProdotto').value;
+      const categoria = document.getElementById('categoriaShop').value;
+      const prezzo = document.getElementById('prezzo').value;
+      const urlImmagine = document.getElementById('urlImmagine').value;
+      const descrizione = document.getElementById('descrizione').value;
+
+      const res = await fetch('/api/annunci', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + localStorage.getItem('token') 
+        },
+        body: JSON.stringify({ prodottoId, categoria, prezzo, urlImmagine, descrizione })
+      });
+
+      if (res.ok) {
+        alert('Annuncio pubblicato con successo!');
+        caricaProdottiPerForm();
+      } else {
+        const err = await res.json();
+        alert(err.error || 'Errore durante la pubblicazione');
+      }
+    }
+
+    async function eliminaAnnuncio(id) {
+      if (!confirm('Eliminare questo annuncio?')) return;
+      const res = await fetch(`/api/prodotti/annuncio/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+      });
+      if (res.ok) {
+        caricaProdottiPerForm();
+      }
+    }
+
+    caricaProdottiPerForm();
+  </script>
 </body>
 </html>

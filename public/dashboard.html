@@ -36,38 +36,19 @@
                     <p class="text-xs text-gray-500">Gestione magazzino e annunci in tempo reale</p>
                 </div>
             </div>
+            
             <div class="flex items-center gap-3">
                 <div class="flex items-center gap-2 bg-slate-100 p-2 px-3 rounded-xl border">
                     <div class="w-7 h-7 bg-slate-800 text-white rounded-full flex items-center justify-center text-xs font-bold">👤</div>
                     <span id="user-display" class="text-xs font-bold text-slate-800"></span>
                     <span id="role-badge" class="text-[10px] uppercase font-extrabold px-2 py-0.5 rounded text-white"></span>
                 </div>
-                <!-- Navbar Header superiore -->
-<div class="header-nav d-flex justify-content-between align-items-center p-3">
-  <div class="d-flex align-items-center gap-2">
-    <img src="logo.png" alt="Logo" height="40">
-    <h4 class="m-0">Dashboard Inventario PLC</h4>
-  </div>
-  
-  <div class="d-flex align-items-center gap-2">
-    <!-- Pulsante visibile SOLO per Admin -->
-    <a href="/gestione-annunci.html" id="btnGestioneAnnunci" class="btn btn-warning fw-bold d-none">
-      📢 Gestione Annunci
-    </a>
-    
-    <span class="badge bg-dark text-white p-2" id="userInfo">admin</span>
-    <button class="btn btn-danger btn-sm" onclick="logout()">Logout</button>
-  </div>
-</div>
 
-<script>
-  // Controllo del ruolo per mostrare il pulsante in alto
-  const userRole = localStorage.getItem('userRole'); // es. 'admin' o 'ufficio'
-  if (userRole === 'admin') {
-    document.getElementById('btnGestioneAnnunci').classList.remove('d-none');
-  }
-</script>
-                
+                <!-- Pulsante Gestione Annunci integrato in stile Tailwind -->
+                <a href="/gestione-annunci.html" id="btn-gestione-annunci" class="hidden text-xs bg-amber-500 hover:bg-amber-600 text-white px-3.5 py-2 rounded-xl font-bold shadow-sm transition flex items-center gap-1">
+                    📢 Annunci
+                </a>
+
                 <button id="btn-scontrini-su" onclick="apriModalListaScontrini()" class="hidden text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 rounded-xl font-bold shadow-sm transition flex items-center gap-1">
                     🖨️ Scontrini
                 </button>
@@ -83,6 +64,7 @@
                 <button onclick="apriModalPass()" class="text-xs bg-slate-200 hover:bg-slate-300 text-slate-700 px-3 py-2 rounded-xl font-semibold transition">
                     🔑 Password
                 </button>
+
                 <button onclick="logout()" class="text-xs bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-xl font-semibold transition">
                     Logout
                 </button>
@@ -465,6 +447,7 @@
         const badgeElem = document.getElementById('role-badge');
         badgeElem.textContent = ruolo;
 
+        // Gestione visibilità sezioni in base ai ruoli
         if (ruolo === 'Visualizzatore') {
             document.getElementById('box-creazione').classList.add('hidden');
             document.getElementById('box-simulatore').classList.add('hidden');
@@ -495,6 +478,7 @@
             document.getElementById('box-inventario').classList.remove('lg:col-span-2');
             document.getElementById('box-inventario').classList.add('lg:col-span-3');
             document.getElementById('box-annunci-ufficio').classList.remove('hidden');
+            document.getElementById('btn-gestione-annunci').classList.remove('hidden');
             badgeElem.classList.add('bg-purple-600');
         } else if (ruolo === 'Operatore') {
             document.getElementById('box-creazione').classList.remove('hidden');
@@ -511,6 +495,7 @@
             document.getElementById('btn-cat-modal').classList.remove('hidden');
             document.getElementById('btn-scontrini-su').classList.remove('hidden');
             document.getElementById('box-annunci-ufficio').classList.remove('hidden');
+            document.getElementById('btn-gestione-annunci').classList.remove('hidden');
         }
 
         const socket = io();
