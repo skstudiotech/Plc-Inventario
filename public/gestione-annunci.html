@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <title>Gestione Annunci - SK Group System</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+  <style>
+    body { background-color: #f4f7f6; }
+    .card-annuncio { background: #ffffff; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+  </style>
+</head>
+<body class="p-4">
+  <div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <h2>Pannello Controllo Annunci Pubblicati</h2>
+      <a href="/dashboard.html" class="btn btn-secondary">← Torna alla Dashboard</a>
+    </div>
+
+    <!-- Modulo di modifica/pubblicazione annunci -->
+    <div class="card p-4 card-annuncio mb-4">
+      <h4 class="mb-3">📢 Modifica o Pubblica Annuncio</h4>
+      <form id="formAnnuncio">
+        <div class="row g-3">
+          <div class="col-md-4">
+            <label class="form-label">Seleziona Prodotto DB</label>
+            <select id="selectProdotto" class="form-select" required></select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Categoria Destinazione</label>
+            <select id="categoriaShop" class="form-select" required>
+              <option value="componenti-pc">Componenti PC & Schede Madri</option>
+              <option value="custom-pc">Costruzione Custom PC</option>
+              <option value="sistemi-plc">Sistemi PLC & Componenti</option>
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Prezzo (€)</label>
+            <input type="number" step="0.01" id="prezzo" class="form-control" required>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">URL Immagine</label>
+            <input type="text" id="urlImmagine" class="form-control">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Breve Descrizione</label>
+            <input type="text" id="descrizione" class="form-control">
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary mt-3">Salva / Aggiorna Annuncio</button>
+      </form>
+    </div>
+
+    <!-- Tabella di Eliminazione/Gestione -->
+    <div class="card p-4 card-annuncio">
+      <h4>Annunci Attivi</h4>
+      <table class="table table-striped mt-3">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Titolo</th>
+            <th>Categoria</th>
+            <th>Prezzo</th>
+            <th>Azioni</th>
+          </tr>
+        </thead>
+        <tbody id="tabellaAnnunci">
+          <!-- Inserimento dinamico annunci con tasti "Elimina" e "Modifica" -->
+        </tbody>
+      </table>
+    </div>
+  </div>
+</body>
+</html>

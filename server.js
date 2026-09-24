@@ -334,3 +334,31 @@ app.post('/api/plc/scansione', verifyToken, (req, res) => {
 server.listen(PORT, () => {
     console.log(`Server avviato e in ascolto sulla porta ${PORT}`);
 });
+// Esempio Endpoint Node.js per pubblicare un annuncio nella tabella corretta
+app.post('/api/annunci', async (req, res) => {
+  const { prodottoId, categoria, prezzo, urlImmagine, descrizione } = req.body;
+
+  // Mappatura delle categorie con le rispettive pagine HTML di destinazione
+  let targetPage = '';
+  switch (categoria) {
+    case 'componenti-pc':
+      targetPage = 'componenti-pc.html';
+      break;
+    case 'custom-pc':
+      targetPage = 'assemblaggio-custom-pc.html';
+      break;
+    case 'sistemi-plc':
+      targetPage = 'sistemi-plc.html';
+      break;
+    default:
+      targetPage = 'index.html';
+  }
+
+  // Salvataggio nel Database mantenendo il riferimento della destinazione
+  await db.query(
+    'INSERT INTO annunci (prodotto_id, categoria, target_page, prezzo, immagine, descrizione) VALUES (?, ?, ?, ?, ?, ?)',
+    [prodottoId, categoria, targetPage, prezzo, urlImmagine, descrizione]
+  );
+
+  res.json({ success: true, message: `Annuncio pubblicato su ${targetPage}` });
+});

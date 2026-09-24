@@ -42,6 +42,31 @@
                     <span id="user-display" class="text-xs font-bold text-slate-800"></span>
                     <span id="role-badge" class="text-[10px] uppercase font-extrabold px-2 py-0.5 rounded text-white"></span>
                 </div>
+                <!-- Navbar Header superiore -->
+<div class="header-nav d-flex justify-content-between align-items-center p-3">
+  <div class="d-flex align-items-center gap-2">
+    <img src="logo.png" alt="Logo" height="40">
+    <h4 class="m-0">Dashboard Inventario PLC</h4>
+  </div>
+  
+  <div class="d-flex align-items-center gap-2">
+    <!-- Pulsante visibile SOLO per Admin -->
+    <a href="/gestione-annunci.html" id="btnGestioneAnnunci" class="btn btn-warning fw-bold d-none">
+      📢 Gestione Annunci
+    </a>
+    
+    <span class="badge bg-dark text-white p-2" id="userInfo">admin</span>
+    <button class="btn btn-danger btn-sm" onclick="logout()">Logout</button>
+  </div>
+</div>
+
+<script>
+  // Controllo del ruolo per mostrare il pulsante in alto
+  const userRole = localStorage.getItem('userRole'); // es. 'admin' o 'ufficio'
+  if (userRole === 'admin') {
+    document.getElementById('btnGestioneAnnunci').classList.remove('d-none');
+  }
+</script>
                 
                 <button id="btn-scontrini-su" onclick="apriModalListaScontrini()" class="hidden text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 rounded-xl font-bold shadow-sm transition flex items-center gap-1">
                     🖨️ Scontrini
