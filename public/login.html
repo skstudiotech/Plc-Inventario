@@ -3,67 +3,70 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - Gestionale</title>
+    <title>Accesso Gestionale</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-slate-900 flex items-center justify-center h-screen m-0 relative">
+<body class="bg-slate-900 min-h-screen flex items-center justify-center p-4">
 
-    <a href="index.html" class="absolute top-4 left-4 bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-2 rounded-xl text-sm transition shadow-lg shadow-blue-600/30">
-        Back
-    </a>
+    <div class="bg-slate-800 border border-slate-700/60 p-8 rounded-2xl shadow-2xl w-full max-w-sm space-y-6">
+        <div class="text-center">
+            <h1 class="text-xl font-bold text-white tracking-wide">Accesso Gestionale</h1>
+        </div>
 
-    <div class="bg-slate-800 p-8 rounded-2xl shadow-2xl w-full max-w-sm border border-slate-700">
-        <h2 class="text-2xl font-bold text-white text-center mb-6">Accesso Gestionale</h2>
-        
-        <form id="loginForm" class="space-y-4">
+        <form onsubmit="eseguiLogin(event)" class="space-y-4">
             <div>
                 <label class="block text-xs font-semibold text-slate-400 mb-1">Username</label>
-                <input id="username" type="text" required autocomplete="off" 
-                    class="w-full bg-slate-900 border border-slate-700 text-white p-2.5 rounded-xl text-sm focus:outline-none focus:border-blue-500">
+                <input id="username" type="text" placeholder="admin" required class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs text-white outline-none focus:border-blue-500 transition">
             </div>
+
             <div>
                 <label class="block text-xs font-semibold text-slate-400 mb-1">Password</label>
-                <input id="password" type="password" required 
-                    class="w-full bg-slate-900 border border-slate-700 text-white p-2.5 rounded-xl text-sm focus:outline-none focus:border-blue-500">
+                <input id="password" type="password" placeholder="•••••" required class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs text-white outline-none focus:border-blue-500 transition">
             </div>
-            <button type="submit" 
-                class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl text-sm transition shadow-lg shadow-blue-600/30">
+
+            <button type="submit" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl text-xs transition shadow-lg shadow-blue-600/30">
                 Accedi
             </button>
         </form>
-        <div id="error-msg" class="text-red-400 text-xs text-center mt-4 font-semibold"></div>
+
+        <p id="errore-msg" class="hidden text-center text-xs font-semibold text-red-500 mt-2"></p>
     </div>
 
     <script>
-        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+        async function eseguiLogin(e) {
             e.preventDefault();
             const usernameInput = document.getElementById('username').value;
-            const password = document.getElementById('password').value;
-            const errorDiv = document.getElementById('error-msg');
-            errorDiv.textContent = '';
+            const passwordInput = document.getElementById('password').value;
+            const errBox = document.getElementById('errore-msg');
+
+            errBox.classList.add('hidden');
 
             try {
-                const res = await fetch('/api/login', {
+                const response = await fetch('/api/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username: usernameInput, password })
+                    body: JSON.stringify({ username: usernameInput, password: passwordInput })
                 });
 
-                const data = await res.json();
+                const data = await response.json();
 
-                if (res.ok) {
-                    // Salvataggio corretto di token, ruolo e username nel localStorage
+                if (response.ok) {
+                    // Salva le credenziali e il token nel localStorage
                     localStorage.setItem('token', data.token);
-                    localStorage.setItem('ruolo', data.role || data.ruolo);
-                    localStorage.setItem('username', usernameInput);
+                    localStorage.setItem('username', data.username);
+                    localStorage.setItem('ruolo', data.ruolo);
+                    
+                    // Reindirizza alla dashboard
                     window.location.href = '/dashboard.html';
                 } else {
-                    errorDiv.textContent = data.error || 'Credenziali non valide';
+                    errBox.textContent = data.error || 'Credenziali errate.';
+                    errBox.classList.remove('hidden');
                 }
             } catch (err) {
-                errorDiv.textContent = 'Impossibile connettersi al server';
+                errBox.textContent = 'Impossibile connettersi al server';
+                errBox.classList.remove('hidden');
             }
-        });
+        }
     </script>
 </body>
 </html>
