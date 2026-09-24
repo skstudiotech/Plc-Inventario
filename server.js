@@ -369,3 +369,39 @@ app.post('/api/prodotti/acquista/:id', verifyToken, (req, res) => {
 server.listen(PORT, () => {
     console.log(`Server avviato e in ascolto sulla porta ${PORT}`);
 });
+// API Pubblica / Aggiorna Annuncio
+app.post('/api/annunci/pubblica', autenticaToken, (req, res) => {
+    const { prodotto_id, categoria_shop, prezzo, quantita_annuncio, url_immagine, descrizione } = req.body;
+
+    if (!prodotto_id) {
+        return res.status(400).json({ error: 'Prodotto non selezionato' });
+    }
+
+    const query = `
+        UPDATE prodotti 
+        SET categoria_shop = ?, prezzo = ?, immagine = ?, descrizione = ?, pubblicato_shop = 1 
+        WHERE id = ?
+    `;
+
+    db.run(query, [categoria_shop, prezzo, url_immagine, descrizione, prodotto_id], function(err) {
+        if (err) {
+            return res.status(500).json({ error: 'Errore durante la pubblicazione dell\'annuncio' });
+        }
+        io.emit('inventario_aggiornato');
+        res.json({ success: true, message: 'Annuncio pubblicato con successo nello shop!' });
+    });
+});
+
+// API Rimuovi Annuncio dallo Shop
+app.delete('/api/annunci/rimuovi/:id', autenticaToken, (req, res) => {
+    const id = req.params.id;
+    const query = `UPDATE prodotti SET pubblicato_shop = 0 WHERE id = ?`;
+
+    db.run(query, [id], function(err) {
+        if (err) {
+            return res.status(500).json({ error: 'Errore nella rimozione dell\'annuncio' });
+        }
+        io.emit('inventario_aggiornato');
+        res.json({ success: true });
+    });
+});

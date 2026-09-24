@@ -7,16 +7,21 @@ const db = new sqlite3.Database(dbPath);
 db.serialize(() => {
     db.run("PRAGMA foreign_keys = ON");
 
-    // 1. Tabella Prodotti
+    // Tabella Prodotti estesa per supportare sia l'inventario PLC sia gli annunci dello Shop
     db.run(`CREATE TABLE IF NOT EXISTS prodotti (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         codice_barre TEXT UNIQUE NOT NULL,
         nome TEXT NOT NULL,
         categoria TEXT DEFAULT 'Generico',
-        quantita INTEGER DEFAULT 0
+        quantita INTEGER DEFAULT 0,
+        prezzo REAL DEFAULT 0.0,
+        descrizione TEXT DEFAULT '',
+        immagine TEXT DEFAULT '',
+        categoria_shop TEXT DEFAULT '',
+        pubblicato_shop INTEGER DEFAULT 0
     )`);
 
-    // 2. Tabella Utenti
+    // Tabella Utenti
     db.run(`CREATE TABLE IF NOT EXISTS utenti (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT UNIQUE,
@@ -24,13 +29,12 @@ db.serialize(() => {
         ruolo TEXT DEFAULT 'operatore'
     )`);
 
-    // 3. Tabella Categorie con Colore
+    // Tabella Categorie
     db.run(`CREATE TABLE IF NOT EXISTS categorie (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         nome TEXT UNIQUE NOT NULL,
         colore TEXT DEFAULT '#64748b'
     )`, () => {
-        // Categorie predefinite di base se il database è nuovo
         db.run(`INSERT OR IGNORE INTO categorie (nome, colore) VALUES ('Elettronica', '#3b82f6')`);
         db.run(`INSERT OR IGNORE INTO categorie (nome, colore) VALUES ('Schede Video', '#8b5cf6')`);
         db.run(`INSERT OR IGNORE INTO categorie (nome, colore) VALUES ('Componenti PLC', '#10b981')`);
