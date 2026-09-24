@@ -1,21 +1,30 @@
 const sqlite3 = require('sqlite3').verbose();
+const bcrypt = require('bcrypt');
 const db = new sqlite3.Database('./database.db');
 
-db.serialize(() => {
+db.serialize(async () => {
     // Tabella Utenti
     db.run(`CREATE TABLE IF NOT EXISTS utenti (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT UNIQUE,
         password TEXT,
         ruolo TEXT
-    )`);
+    )`, async () => {
+        // Genera utente admin di default se la tabella è vuota
+        db.get(`SELECT COUNT(*) as count FROM utenti`, async (err, row) => {
+            if (row && row.count === 0) {
+                const passwordHash = await bcrypt.hash('admin', 10);
+                db.run(`INSERT INTO utenti (username, password, ruolo) VALUES (?, ?, ?)`, ['admin', passwordHash, 'Admin']);
+                console.log('--- Account Admin creato con successo! Username: admin | Password: admin ---');
+            }
+        });
+    });
 
-    // Tabella Categorie (Gestione Dinamica)
+    // Tabella Categorie
     db.run(`CREATE TABLE IF NOT EXISTS categorie (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         nome TEXT UNIQUE
     )`, () => {
-        // Inserisce categorie predefinite se la tabella è vuota
         db.get(`SELECT COUNT(*) as count FROM categorie`, (err, row) => {
             if (row && row.count === 0) {
                 const categorieIniziali = [
