@@ -363,3 +363,31 @@ app.post('/api/plc/scansione', verifyToken, (req, res) => {
 server.listen(PORT, () => {
     console.log(`Server avviato e in ascolto sulla porta ${PORT}`);
 });
+// Endpoint per simulare/registrare l'acquisto di un annuncio
+app.post('/api/prodotti/acquista/:id', verificaToken, async (req, res) => {
+    const annuncioId = req.params.id;
+
+    try {
+        // 1. Trova l'annuncio
+        const [annuncio] = await db.query('SELECT * FROM prodotti WHERE id = ?', [annuncioId]);
+        if (!annuncio || annuncio.length === 0) return res.status(404).json({ error: 'Annuncio non trovato' });
+
+        const item = annuncio[0];
+        if (item.quantita <= 0) return res.status(400).json({ error: 'Quantità esaurita nello shop' });
+
+        // 2. Riduci la quantità dell'annuncio
+        await db.query('UPDATE prodotti SET quantita = quantita - 1 WHERE id = ?', [annuncioId]);
+
+        // 3. Riduci di 1 la quantità anche dal prodotto originale in inventario (se collegato)
+        if (item.prodotto_padre_id) {
+            await db.query('UPDATE prodotti SET quantita = GREATEST(0, quantita - 1) WHERE id = ?', [item.prodotto_padre_id]);
+        }
+
+        // 4. Notifica via WebSocket l'aggiornamento
+        io.emit('inventario_aggiornato');
+
+        res.json({ success: true, message: 'Vendita registrata e inventario aggiornato' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});

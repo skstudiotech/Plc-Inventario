@@ -27,7 +27,7 @@
 
     <div class="max-w-6xl mx-auto space-y-6">
         
-        <!-- Header -->
+        <!-- Header (Fedele allo screenshot) -->
         <div class="flex justify-between items-center bg-white p-5 rounded-2xl shadow-sm border border-gray-200">
             <div class="flex items-center gap-3">
                 <div class="p-3 bg-blue-100 text-blue-600 rounded-xl text-xl">📦</div>
@@ -37,14 +37,14 @@
                 </div>
             </div>
             
-            <div class="flex items-center gap-3">
+            <div class="flex items-center gap-2">
                 <div class="flex items-center gap-2 bg-slate-100 p-2 px-3 rounded-xl border">
                     <div class="w-7 h-7 bg-slate-800 text-white rounded-full flex items-center justify-center text-xs font-bold">👤</div>
                     <span id="user-display" class="text-xs font-bold text-slate-800"></span>
                     <span id="role-badge" class="text-[10px] uppercase font-extrabold px-2 py-0.5 rounded text-white"></span>
                 </div>
 
-                <!-- Pulsante Gestione Annunci integrato in stile Tailwind -->
+                <!-- Pulsante Annunci stilizzato come nello screenshot -->
                 <a href="/gestione-annunci.html" id="btn-gestione-annunci" class="hidden text-xs bg-amber-500 hover:bg-amber-600 text-white px-3.5 py-2 rounded-xl font-bold shadow-sm transition flex items-center gap-1">
                     📢 Annunci
                 </a>
@@ -57,7 +57,7 @@
                     🏷️ Categorie
                 </button>
 
-                <button id="btn-admin-modal" onclick="apriModalUtenti()" class="hidden text-xs bg-amber-500 hover:bg-amber-600 text-white px-3.5 py-2 rounded-xl font-bold shadow-sm transition">
+                <button id="btn-admin-modal" onclick="apriModalUtenti()" class="hidden text-xs bg-amber-500 hover:bg-amber-600 text-white px-3.5 py-2 rounded-xl font-bold shadow-sm transition flex items-center gap-1">
                     👥 Utenti
                 </button>
                 
@@ -73,7 +73,7 @@
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
             
-            <!-- Form Creazione Prodotto Standard (Magazzino) -->
+            <!-- Form Creazione Prodotto Standard Magazzino -->
             <div id="box-creazione" class="bg-white p-5 rounded-2xl shadow-sm border space-y-4">
                 <h2 class="text-base font-bold text-slate-800">➕ Crea Prodotto ed Etichetta</h2>
                 <form onsubmit="creaProdotto(event)" class="space-y-3">
@@ -105,10 +105,10 @@
                 </div>
             </div>
 
-            <!-- Tabella Inventario Magazzino -->
+            <!-- Tabella Inventario Magazzino Reale -->
             <div id="box-inventario" class="lg:col-span-2 bg-white rounded-2xl shadow-sm border overflow-hidden">
                 <div class="p-4 bg-slate-800 text-white font-bold text-sm flex justify-between items-center">
-                    <span>Inventario Magazzino & Annunci Pubblicati</span>
+                    <span>Inventario Magazzino</span>
                     <span class="text-[10px] font-semibold bg-blue-500 text-white px-2 py-0.5 rounded-full">Socket.io Live</span>
                 </div>
                 <table class="w-full text-left border-collapse">
@@ -126,7 +126,7 @@
             </div>
         </div>
 
-        <!-- BOX CREAZIONE ANNUNCI / PRODOTTI SHOP (Visibile all'Ufficio e Admin) -->
+        <!-- BOX CREAZIONE ANNUNCI / PRODOTTI SHOP -->
         <div id="box-annunci-ufficio" class="hidden bg-white p-6 rounded-2xl shadow-sm border space-y-4">
             <div class="border-b pb-3">
                 <h2 class="text-base font-bold text-slate-800">🏷️ Pubblica Annuncio / Prodotto dal Database</h2>
@@ -170,6 +170,26 @@
             </form>
         </div>
 
+        <!-- TABELLA SEPARATA PER GLI ANNUNCI PUBBLICATI -->
+        <div id="box-annunci-pubblicati" class="hidden bg-white rounded-2xl shadow-sm border overflow-hidden">
+            <div class="p-4 bg-purple-900 text-white font-bold text-sm flex justify-between items-center">
+                <span>Annunci Attivi nello Shop</span>
+                <span class="text-[10px] font-semibold bg-purple-500 text-white px-2 py-0.5 rounded-full">Gestione Shop</span>
+            </div>
+            <table class="w-full text-left border-collapse">
+                <thead class="bg-gray-50 border-b text-[11px] text-gray-400 uppercase">
+                    <tr>
+                        <th class="p-3">Prodotto</th>
+                        <th class="p-3">Categoria Shop</th>
+                        <th class="p-3">Prezzo</th>
+                        <th class="p-3 text-center">Qtà VENDITA</th>
+                        <th class="p-3 text-right">Azioni Annuncio</th>
+                    </tr>
+                </thead>
+                <tbody id="tabella-annunci" class="divide-y text-xs"></tbody>
+            </table>
+        </div>
+
         <!-- SEZIONE TOUCH SCREEN SCONTRINI -->
         <div id="box-touch-scontrini" class="hidden bg-white p-6 rounded-2xl shadow-sm border space-y-4">
             <div class="flex items-center justify-between border-b pb-3">
@@ -195,7 +215,7 @@
     <div id="modal-modifica-annuncio" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
         <div class="bg-white rounded-2xl p-6 w-full max-w-lg shadow-2xl space-y-4">
             <div class="flex justify-between items-center border-b pb-3">
-                <h3 class="font-bold text-slate-800">✏️ Modifica Annuncio / Prodotto</h3>
+                <h3 class="font-bold text-slate-800">✏️ Modifica Annuncio</h3>
                 <button onclick="chiudiModalModificaAnnuncio()" class="text-gray-400 hover:text-gray-600 font-bold text-lg">✕</button>
             </div>
             <form onsubmit="eseguiModificaAnnuncio(event)" class="space-y-3">
@@ -206,7 +226,7 @@
                 </div>
                 <div class="grid grid-cols-2 gap-2">
                     <div>
-                        <label class="block text-xs font-semibold text-gray-600 mb-1">Categoria</label>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Categoria Shop</label>
                         <select id="edit-cat" class="w-full border p-2 rounded-lg text-xs bg-white outline-none font-semibold">
                             <option value="Componenti PC & Schede Madri">Componenti PC & Schede Madri</option>
                             <option value="Costruzione Custom PC">Costruzione Custom PC</option>
@@ -219,7 +239,7 @@
                     </div>
                 </div>
                 <div>
-                    <label class="block text-xs font-semibold text-gray-600 mb-1">Quantità Disponibile</label>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">Quantità Annuncio</label>
                     <input id="edit-quantita" type="number" required class="w-full border p-2 rounded-lg text-xs outline-none">
                 </div>
                 <div>
@@ -411,14 +431,14 @@
         </div>
     </div>
 
-    <!-- MODALE CONFERMA ELIMINAZIONE -->
+    <!-- MODALE CONFERMA ELIMINAZIONE PRODOTTO MAGAZZINO -->
     <div id="modal-elimina" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
         <div class="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl space-y-4 border border-red-100">
             <div class="flex justify-between items-center border-b pb-3">
                 <h3 class="font-bold text-red-600 text-sm flex items-center gap-2">⚠️ Conferma Eliminazione</h3>
                 <button onclick="chiudiModalElimina()" class="text-gray-400 hover:text-gray-600 font-bold text-lg">✕</button>
             </div>
-            <p class="text-xs text-slate-600">Stai per eliminare il prodotto: <strong id="nome-prodotto-elimina" class="text-slate-800"></strong>.</p>
+            <p class="text-xs text-slate-600">Stai per eliminare il prodotto dall'inventario: <strong id="nome-prodotto-elimina" class="text-slate-800"></strong>.</p>
             <form onsubmit="confermaEliminazioneProdotto(event)" class="space-y-3">
                 <div>
                     <label class="block text-xs font-semibold text-gray-600 mb-1">Password Admin di conferma:</label>
@@ -439,6 +459,7 @@
         
         let listaCategorie = [];
         let listaProdottiGlobal = [];
+        let listaAnnunciGlobal = [];
         let prodottoDaEliminareId = null;
         let utenteSelezionatoPassId = null;
 
@@ -447,7 +468,7 @@
         const badgeElem = document.getElementById('role-badge');
         badgeElem.textContent = ruolo;
 
-        // Gestione visibilità sezioni in base ai ruoli
+        // Gestione Visibilità in base ai ruoli
         if (ruolo === 'Visualizzatore') {
             document.getElementById('box-creazione').classList.add('hidden');
             document.getElementById('box-simulatore').classList.add('hidden');
@@ -478,6 +499,7 @@
             document.getElementById('box-inventario').classList.remove('lg:col-span-2');
             document.getElementById('box-inventario').classList.add('lg:col-span-3');
             document.getElementById('box-annunci-ufficio').classList.remove('hidden');
+            document.getElementById('box-annunci-pubblicati').classList.remove('hidden');
             document.getElementById('btn-gestione-annunci').classList.remove('hidden');
             badgeElem.classList.add('bg-purple-600');
         } else if (ruolo === 'Operatore') {
@@ -495,6 +517,7 @@
             document.getElementById('btn-cat-modal').classList.remove('hidden');
             document.getElementById('btn-scontrini-su').classList.remove('hidden');
             document.getElementById('box-annunci-ufficio').classList.remove('hidden');
+            document.getElementById('box-annunci-pubblicati').classList.remove('hidden');
             document.getElementById('btn-gestione-annunci').classList.remove('hidden');
         }
 
@@ -566,14 +589,14 @@
         }
         function chiudiModalElimina() { prodottoDaEliminareId = null; document.getElementById('modal-elimina').classList.add('hidden'); }
 
-        function apriModalModificaAnnuncio(p) {
-            document.getElementById('edit-annuncio-id').value = p.id;
-            document.getElementById('edit-nome').value = p.nome;
-            document.getElementById('edit-cat').value = p.categoria || 'Componenti PC & Schede Madri';
-            document.getElementById('edit-prezzo').value = p.prezzo || 0;
-            document.getElementById('edit-quantita').value = p.quantita || 0;
-            document.getElementById('edit-img').value = p.immagine || '';
-            document.getElementById('edit-desc').value = p.descrizione || '';
+        function apriModalModificaAnnuncio(a) {
+            document.getElementById('edit-annuncio-id').value = a.id;
+            document.getElementById('edit-nome').value = a.nome;
+            document.getElementById('edit-cat').value = a.categoria || 'Componenti PC & Schede Madri';
+            document.getElementById('edit-prezzo').value = a.prezzo || 0;
+            document.getElementById('edit-quantita').value = a.quantita || 0;
+            document.getElementById('edit-img').value = a.immagine || '';
+            document.getElementById('edit-desc').value = a.descrizione || '';
             document.getElementById('modal-modifica-annuncio').classList.remove('hidden');
         }
 
@@ -614,7 +637,7 @@
                 headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
             });
             if (res.ok) {
-                mostraNotifica('Annuncio eliminato!');
+                mostraNotifica('Annuncio eliminato dallo shop!');
                 caricaProdotti();
             } else {
                 mostraNotifica('Errore eliminazione annuncio', 'error');
@@ -703,14 +726,19 @@
         async function caricaProdotti() {
             const res = await fetch('/api/prodotti', { headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') } });
             if (res.status === 401 || res.status === 403) logout();
-            listaProdottiGlobal = await res.json();
+            const tuttiIProdotti = await res.json();
             
+            // Separiamo i prodotti inventario dagli annunci pubblicati
+            listaProdottiGlobal = tuttiIProdotti.filter(p => !p.prezzo);
+            listaAnnunciGlobal = tuttiIProdotti.filter(p => p.prezzo !== null && p.prezzo !== undefined);
+
             popolaSelectProdottiDatabase();
 
+            // Tabella INVENTARIO STANDARD
             const tbody = document.getElementById('tabella-prodotti');
             tbody.innerHTML = '';
             if (listaProdottiGlobal.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-gray-400">Nessun prodotto presente</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-gray-400">Nessun prodotto presente in inventario</td></tr>`;
             } else {
                 listaProdottiGlobal.forEach(p => {
                     const objCat = listaCategorie.find(c => c.nome.toLowerCase() === (p.categoria || '').toLowerCase());
@@ -720,27 +748,50 @@
                     if (ruolo === 'Admin') {
                         btnAzioneHtml = `
                             <td class="p-3 text-right space-x-1">
-                                <button onclick='apriModalModificaAnnuncio(${JSON.stringify(p)})' class="bg-blue-100 text-blue-600 hover:bg-blue-200 px-2.5 py-1 rounded-lg font-bold text-[11px]">✏️ Modifica</button>
                                 <button onclick="apriModalElimina(${p.id}, '${p.nome.replace(/'/g, "\\'")}')" class="bg-red-100 text-red-600 hover:bg-red-200 px-2.5 py-1 rounded-lg font-bold text-[11px]">🗑️ Elimina</button>
-                            </td>`;
-                    } else if (ruolo === 'Ufficio') {
-                        btnAzioneHtml = `
-                            <td class="p-3 text-right space-x-1">
-                                <button onclick='apriModalModificaAnnuncio(${JSON.stringify(p)})' class="bg-blue-100 text-blue-600 hover:bg-blue-200 px-2.5 py-1 rounded-lg font-bold text-[11px]">✏️ Modifica</button>
-                                <button onclick="eliminaAnnuncioDiretto(${p.id}, '${p.nome.replace(/'/g, "\\'")}')" class="bg-red-100 text-red-600 hover:bg-red-200 px-2.5 py-1 rounded-lg font-bold text-[11px]">🗑️ Elimina</button>
                             </td>`;
                     }
 
                     tbody.innerHTML += `
                         <tr class="hover:bg-gray-50 border-b">
                             <td class="p-3 font-mono font-semibold text-gray-600">${p.codice_barre}</td>
-                            <td class="p-3 font-semibold text-slate-800">${p.nome} ${p.prezzo ? `<span class="text-xs text-purple-600 font-bold">(${p.prezzo} €)</span>` : ''}</td>
+                            <td class="p-3 font-semibold text-slate-800">${p.nome}</td>
                             <td class="p-3"><span class="text-white px-2 py-0.5 rounded text-[10px] font-bold shadow-sm" style="background-color: ${coloreBg}">${p.categoria || 'Generico'}</span></td>
                             <td class="p-3 text-center"><span class="bg-blue-100 text-blue-800 px-2.5 py-1 rounded-full font-bold text-xs">${p.quantita}</span></td>
                             ${btnAzioneHtml}
                         </tr>
                     `;
                 });
+            }
+
+            // Tabella ANNUNCI PUBBLICATI
+            const tbodyAnnunci = document.getElementById('tabella-annunci');
+            if (tbodyAnnunci) {
+                tbodyAnnunci.innerHTML = '';
+                if (listaAnnunciGlobal.length === 0) {
+                    tbodyAnnunci.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-gray-400">Nessun annuncio attivo nello shop</td></tr>`;
+                } else {
+                    listaAnnunciGlobal.forEach(a => {
+                        let btnAzioneAnnuncio = '';
+                        if (ruolo === 'Admin' || ruolo === 'Ufficio') {
+                            btnAzioneAnnuncio = `
+                                <td class="p-3 text-right space-x-1">
+                                    <button onclick='apriModalModificaAnnuncio(${JSON.stringify(a)})' class="bg-amber-100 text-amber-700 hover:bg-amber-200 px-2.5 py-1 rounded-lg font-bold text-[11px]">✏️ Modifica</button>
+                                    <button onclick="eliminaAnnuncioDiretto(${a.id}, '${a.nome.replace(/'/g, "\\'")}')" class="bg-red-100 text-red-600 hover:bg-red-200 px-2.5 py-1 rounded-lg font-bold text-[11px]">🗑️ Elimina</button>
+                                </td>`;
+                        }
+
+                        tbodyAnnunci.innerHTML += `
+                            <tr class="hover:bg-purple-50 border-b">
+                                <td class="p-3 font-bold text-slate-800">${a.nome}</td>
+                                <td class="p-3"><span class="bg-purple-100 text-purple-800 px-2 py-0.5 rounded text-[10px] font-bold">${a.categoria}</span></td>
+                                <td class="p-3 font-bold text-green-600">${a.prezzo} €</td>
+                                <td class="p-3 text-center"><span class="bg-purple-200 text-purple-900 px-2.5 py-1 rounded-full font-bold text-xs">${a.quantita}</span></td>
+                                ${btnAzioneAnnuncio}
+                            </tr>
+                        `;
+                    });
+                }
             }
 
             if (ruolo === 'Addetto scontrini') {
@@ -753,7 +804,7 @@
             if(!selectDb) return;
             selectDb.innerHTML = `<option value="">-- Seleziona Prodotto --</option>`;
             listaProdottiGlobal.forEach(p => {
-                selectDb.innerHTML += `<option value="${p.id}" data-qty="${p.quantita}" data-prezzo="${p.prezzo || 0}" data-img="${p.immagine || ''}" data-desc="${p.descrizione || ''}">${p.nome} (Giacenza DB: ${p.quantita})</option>`;
+                selectDb.innerHTML += `<option value="${p.id}" data-qty="${p.quantita}">${p.nome} (Giacenza DB: ${p.quantita})</option>`;
             });
         }
 
@@ -766,9 +817,6 @@
             document.getElementById('max-qty-label').textContent = `Max DB: ${maxQty}`;
             document.getElementById('shop-quantita').max = maxQty;
             document.getElementById('shop-quantita').value = maxQty;
-            document.getElementById('shop-prezzo').value = selectedOption.getAttribute('data-prezzo');
-            document.getElementById('shop-img').value = selectedOption.getAttribute('data-img');
-            document.getElementById('shop-desc').value = selectedOption.getAttribute('data-desc');
         }
 
         function renderizzaGrigliaTouchScontrini() {
@@ -821,7 +869,7 @@
                 body: JSON.stringify({ password })
             });
             const data = await res.json();
-            if (res.ok) { chiudiModalElimina(); mostraNotifica('Prodotto eliminato!'); }
+            if (res.ok) { chiudiModalElimina(); mostraNotifica('Prodotto eliminato dall\'inventario!'); }
             else { mostraNotifica(data.error || 'Password errata', 'error'); }
         }
 
@@ -846,7 +894,7 @@
                 document.getElementById('box-etichetta').classList.remove('hidden');
                 document.getElementById('p-nome').value = '';
                 document.getElementById('p-codice').value = '';
-                mostraNotifica('Prodotto salvato!');
+                mostraNotifica('Prodotto salvato in inventario!');
             } else {
                 mostraNotifica(data.error || 'Errore salvataggio', 'error');
             }
@@ -883,7 +931,7 @@
             });
 
             if (res.ok) {
-                mostraNotifica('Annuncio pubblicato / aggiornato con successo!');
+                mostraNotifica('Annuncio pubblicato con successo!');
                 document.getElementById('shop-prezzo').value = '';
                 document.getElementById('shop-quantita').value = '';
                 document.getElementById('shop-img').value = '';
@@ -917,7 +965,7 @@
             });
             if (res.ok) {
                 chiudiModalAdminPassUtente();
-                mostraNotifica('Password utente aggiornata con successo!');
+                mostraNotifica('Password utente aggiornata!');
             } else {
                 const data = await res.json();
                 mostraNotifica(data.error || 'Errore aggiornamento password', 'error');
