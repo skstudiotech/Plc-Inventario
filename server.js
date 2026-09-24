@@ -125,7 +125,7 @@ app.get('/api/admin/utenti', verifyToken, (req, res) => {
 app.put('/api/admin/cambia-ruolo', verifyToken, (req, res) => {
     if (req.user.ruolo !== 'Admin' && req.user.role !== 'admin') return res.status(403).json({ error: "Accesso negato." });
     const { id, nuovoRuolo } = req.body;
-    db.run(`UPDATE utenti SET ruolo = ? WHERE id = ?`, [nuoRuolo, id], function(err) {
+    db.run(`UPDATE utenti SET ruolo = ? WHERE id = ?`, [nuovoRuolo, id], function(err) {
         if (err) return res.status(500).json({ error: "Errore aggiornamento ruolo." });
         res.json({ success: true });
     });
@@ -207,7 +207,6 @@ app.get('/api/prodotti', verifyToken, (req, res) => {
     });
 });
 
-// Endpoint pubblico per caricare i prodotti dello shop divisi per categoria
 app.get('/api/prodotti/categoria/:categoria', (req, res) => {
     const categoriaDecodificata = decodeURIComponent(req.params.categoria);
     db.all(`SELECT * FROM prodotti WHERE categoria = ?`, [categoriaDecodificata], (err, rows) => {
@@ -216,27 +215,80 @@ app.get('/api/prodotti/categoria/:categoria', (req, res) => {
     });
 });
 
-// Pubblicazione prodotti/annunci (consentito ad Admin e Ufficio)
+// Creazione o Pubblicazione Prodotti/Annunci
 app.post('/api/prodotti', verifyToken, (req, res) => {
-    if (req.user.ruolo !== 'Admin' && req.user.role !== 'admin' && req.user.ruolo !== 'Ufficio' && req.user.role !== 'Ufficio') {
-        return res.status(403).json({ error: "Non hai i permessi necessari per aggiungere prodotti." });
+    if (req.user.ruolo !== 'Admin' && req.user.role !== 'admin' && req.user.ruolo !== 'Ufficio' && req.user.role !== 'Ufficio' && req.user.ruolo !== 'Operatore') {
+        return res.status(403).json({ error: "Non hai i permessi necessari." });
     }
 
-    const { codice_barre, nome, categoria, prezzo, quantita, immagine, descrizione } = req.body;
-    const codiceGenerato = codice_barre || Math.floor(10000000 + Math.random() * 90000000).toString();
-    const qty = quantita || 1;
+    const { prodotto_id, codice_barre, nome, categoria, prezzo, quantita, immagine, descrizione } = req.body;
+    const qtyInput = parseInt(quantita) || 1;
 
-    db.run(`INSERT INTO prodotti (codice_barre, nome, categoria, quantita, prezzo, immagine, descrizione) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [codiceGenerato, nome, categoria || 'Componenti PC & Schede Madri', qty, prezzo || 0, immagine || '', descrizione || ''], function(err) {
-        if (err) return res.status(500).json({ error: "Errore nel salvataggio del prodotto." });
-        io.emit('inventario_aggiornato');
-        res.json({ success: true, id: this.lastID, codice_generato: codiceGenerato });
+    // Se si sta pubblicando un annuncio da un prodotto esistente nel DB
+    if (prodotto_id) {
+        db.get(`SELECT * FROM prodotti WHERE id = ?`, [prodotto_id], (err, dbProd) => {
+            if (err || !dbProd) return res.status(400).json({ error: "Prodotto selezionato non trovato nel database." });
+            
+            if (qtyInput > dbProd.quantita) {
+                return res.status(400).json({ error: `Quantità non valida! Disponibile a magazzino nel database: ${dbProd.quantita}` });
+            }
+
+            db.run(`UPDATE prodotti SET categoria = ?, quantita = ?, prezzo = ?, immagine = ?, descrizione = ? WHERE id = ?`,
+                [categoria, qtyInput, prezzo || 0, immagine || '', descrizione || '', prodotto_id], function(err) {
+                if (err) return res.status(500).json({ error: "Errore nell'aggiornamento dell'annuncio." });
+                io.emit('inventario_aggiornato');
+                res.json({ success: true, id: prodotto_id });
+            });
+        });
+    } else {
+        const codiceGenerato = codice_barre || Math.floor(10000000 + Math.random() * 90000000).toString();
+        db.run(`INSERT INTO prodotti (codice_barre, nome, categoria, quantita, prezzo, immagine, descrizione) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [codiceGenerato, nome, categoria || 'Componenti PC & Schede Madri', qtyInput, prezzo || 0, immagine || '', descrizione || ''], function(err) {
+            if (err) return res.status(500).json({ error: "Errore nel salvataggio del prodotto." });
+            io.emit('inventario_aggiornato');
+            res.json({ success: true, id: this.lastID, codice_generato: codiceGenerato });
+        });
+    }
+});
+
+// MODIFICA ANNUNCIO / PRODOTTO
+app.put('/api/prodotti/:id', verifyToken, (req, res) => {
+    if (req.user.ruolo !== 'Admin' && req.user.role !== 'admin' && req.user.ruolo !== 'Ufficio' && req.user.role !== 'Ufficio') {
+        return res.status(403).json({ error: "Accesso negato." });
+    }
+
+    const { nome, categoria, prezzo, quantita, immagine, descrizione } = req.body;
+    const qtyInput = parseInt(quantita) || 0;
+
+    db.get(`SELECT quantita FROM prodotti WHERE id = ?`, [req.params.id], (err, row) => {
+        if (err || !row) return res.status(404).json({ error: "Prodotto non trovato." });
+
+        db.run(`UPDATE prodotti SET nome = ?, categoria = ?, prezzo = ?, quantita = ?, immagine = ?, descrizione = ? WHERE id = ?`,
+            [nome, categoria, prezzo || 0, qtyInput, immagine || '', descrizione || '', req.params.id], function(err) {
+            if (err) return res.status(500).json({ error: "Errore nell'aggiornamento dell'annuncio." });
+            io.emit('inventario_aggiornato');
+            res.json({ success: true });
+        });
     });
 });
 
+// ELIMINAZIONE DIRETTA ANNUNCIO (Ufficio / Admin)
+app.delete('/api/prodotti/annuncio/:id', verifyToken, (req, res) => {
+    if (req.user.ruolo !== 'Admin' && req.user.role !== 'admin' && req.user.ruolo !== 'Ufficio' && req.user.role !== 'Ufficio') {
+        return res.status(403).json({ error: "Accesso negato." });
+    }
+
+    db.run(`DELETE FROM prodotti WHERE id = ?`, [req.params.id], function(err) {
+        if (err) return res.status(500).json({ error: "Errore eliminazione." });
+        io.emit('inventario_aggiornato');
+        res.json({ success: true });
+    });
+});
+
+// Eliminazione Magazzino con Password Admin
 app.delete('/api/prodotti/:id', verifyToken, async (req, res) => {
     if (req.user.ruolo !== 'Admin' && req.user.role !== 'admin') {
-        return res.status(403).json({ error: "Solo l'Admin può eliminare i prodotti." });
+        return res.status(403).json({ error: "Solo l'Admin può eliminare i prodotti da questa sezione." });
     }
     const { password } = req.body;
     db.get(`SELECT password FROM utenti WHERE id = ?`, [req.user.id], async (err, row) => {

@@ -33,7 +33,7 @@
                 <div class="p-3 bg-blue-100 text-blue-600 rounded-xl text-xl">📦</div>
                 <div>
                     <h1 class="text-xl font-bold text-slate-800">Dashboard Inventario PLC</h1>
-                    <p class="text-xs text-gray-500">Gestione magazzino in tempo reale</p>
+                    <p class="text-xs text-gray-500">Gestione magazzino e annunci in tempo reale</p>
                 </div>
             </div>
             <div class="flex items-center gap-3">
@@ -43,17 +43,14 @@
                     <span id="role-badge" class="text-[10px] uppercase font-extrabold px-2 py-0.5 rounded text-white"></span>
                 </div>
                 
-                <!-- PULSANTE SCONTRINI -->
                 <button id="btn-scontrini-su" onclick="apriModalListaScontrini()" class="hidden text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 rounded-xl font-bold shadow-sm transition flex items-center gap-1">
                     🖨️ Scontrini
                 </button>
 
-                <!-- PULSANTE CATEGORIE -->
                 <button id="btn-cat-modal" onclick="apriModalCategorie()" class="hidden text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-2 rounded-xl font-bold shadow-sm transition flex items-center gap-1">
                     🏷️ Categorie
                 </button>
 
-                <!-- PULSANTE UTENTI (Solo Admin) -->
                 <button id="btn-admin-modal" onclick="apriModalUtenti()" class="hidden text-xs bg-amber-500 hover:bg-amber-600 text-white px-3.5 py-2 rounded-xl font-bold shadow-sm transition">
                     👥 Utenti
                 </button>
@@ -104,7 +101,7 @@
             <!-- Tabella Inventario Magazzino -->
             <div id="box-inventario" class="lg:col-span-2 bg-white rounded-2xl shadow-sm border overflow-hidden">
                 <div class="p-4 bg-slate-800 text-white font-bold text-sm flex justify-between items-center">
-                    <span>Inventario Magazzino</span>
+                    <span>Inventario Magazzino & Annunci Pubblicati</span>
                     <span class="text-[10px] font-semibold bg-blue-500 text-white px-2 py-0.5 rounded-full">Socket.io Live</span>
                 </div>
                 <table class="w-full text-left border-collapse">
@@ -114,7 +111,7 @@
                             <th class="p-3">Nome Articolo</th>
                             <th class="p-3">Categoria</th>
                             <th class="p-3 text-center">Quantità</th>
-                            <th id="th-azione-prodotti" class="p-3 text-right">Azione</th>
+                            <th id="th-azione-prodotti" class="p-3 text-right">Azioni</th>
                         </tr>
                     </thead>
                     <tbody id="tabella-prodotti" class="divide-y text-xs"></tbody>
@@ -122,17 +119,17 @@
             </div>
         </div>
 
-        <!-- BOX CREAZIONE ANNUNCI / PRODOTTI SHOP (Visibile all'Ufficio) -->
+        <!-- BOX CREAZIONE ANNUNCI / PRODOTTI SHOP (Visibile all'Ufficio e Admin) -->
         <div id="box-annunci-ufficio" class="hidden bg-white p-6 rounded-2xl shadow-sm border space-y-4">
             <div class="border-b pb-3">
-                <h2 class="text-base font-bold text-slate-800">🏷️ Pubblica Annuncio / Prodotto nello Shop</h2>
-                <p class="text-xs text-gray-500">Crea un articolo visibile direttamente nei reparti dello shop pubblico con prezzo, giacenza e dettagli.</p>
+                <h2 class="text-base font-bold text-slate-800">🏷️ Pubblica Annuncio / Prodotto dal Database</h2>
+                <p class="text-xs text-gray-500">Seleziona un prodotto presente nel database magazzino per inserirlo nello shop pubblico con prezzo e giacenza controllata.</p>
             </div>
             
             <form onsubmit="creaAnnuncioShop(event)" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div>
-                    <label class="block text-xs font-semibold text-gray-600 mb-1">Nome Prodotto</label>
-                    <input id="shop-nome" type="text" placeholder="es. Scheda Video RTX" required class="w-full border p-2 rounded-lg text-xs outline-none">
+                <div class="sm:col-span-2 lg:col-span-1">
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">Seleziona Prodotto dal Database</label>
+                    <select id="shop-prod-db" onchange="selezionaProdottoDaDb()" required class="w-full border p-2 rounded-lg text-xs bg-white font-bold outline-none border-purple-300 focus:ring-2 focus:ring-purple-500"></select>
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-gray-600 mb-1">Categoria Shop</label>
@@ -147,8 +144,8 @@
                     <input id="shop-prezzo" type="number" step="0.01" placeholder="es. 24.00" required class="w-full border p-2 rounded-lg text-xs outline-none">
                 </div>
                 <div>
-                    <label class="block text-xs font-semibold text-gray-600 mb-1">Quantità Disponibile</label>
-                    <input id="shop-quantita" type="number" placeholder="es. 10" required class="w-full border p-2 rounded-lg text-xs outline-none">
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">Quantità Annuncio (<span id="max-qty-label" class="text-purple-600 font-bold">Max: -</span>)</label>
+                    <input id="shop-quantita" type="number" placeholder="es. 1" required class="w-full border p-2 rounded-lg text-xs outline-none">
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-gray-600 mb-1">URL Immagine</label>
@@ -160,7 +157,7 @@
                 </div>
                 <div class="sm:col-span-2 lg:col-span-3">
                     <button type="submit" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2.5 rounded-xl text-xs transition shadow-sm">
-                        🚀 Pubblica Annuncio nello Shop
+                        🚀 Pubblica / Aggiorna Annuncio nello Shop
                     </button>
                 </div>
             </form>
@@ -184,6 +181,53 @@
                 <input id="codice-test" type="text" class="border p-2 rounded-lg text-xs font-mono w-full bg-white outline-none focus:ring-2 focus:ring-blue-500" placeholder="Spara un codice a barre col lettore">
                 <button onclick="simulaScansione()" class="bg-blue-600 text-white text-xs px-4 py-2 rounded-lg font-bold hover:bg-blue-700 transition">Simula PLC</button>
             </div>
+        </div>
+    </div>
+
+    <!-- MODALE MODIFICA ANNUNCIO -->
+    <div id="modal-modifica-annuncio" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl p-6 w-full max-w-lg shadow-2xl space-y-4">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 class="font-bold text-slate-800">✏️ Modifica Annuncio / Prodotto</h3>
+                <button onclick="chiudiModalModificaAnnuncio()" class="text-gray-400 hover:text-gray-600 font-bold text-lg">✕</button>
+            </div>
+            <form onsubmit="eseguiModificaAnnuncio(event)" class="space-y-3">
+                <input type="hidden" id="edit-annuncio-id">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">Nome Prodotto</label>
+                    <input id="edit-nome" type="text" required class="w-full border p-2 rounded-lg text-xs outline-none">
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Categoria</label>
+                        <select id="edit-cat" class="w-full border p-2 rounded-lg text-xs bg-white outline-none font-semibold">
+                            <option value="Componenti PC & Schede Madri">Componenti PC & Schede Madri</option>
+                            <option value="Costruzione Custom PC">Costruzione Custom PC</option>
+                            <option value="Sistemi PLC & Componenti">Sistemi PLC & Componenti</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Prezzo (€)</label>
+                        <input id="edit-prezzo" type="number" step="0.01" required class="w-full border p-2 rounded-lg text-xs outline-none">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">Quantità Disponibile</label>
+                    <input id="edit-quantita" type="number" required class="w-full border p-2 rounded-lg text-xs outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">URL Immagine</label>
+                    <input id="edit-img" type="text" class="w-full border p-2 rounded-lg text-xs outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">Descrizione</label>
+                    <input id="edit-desc" type="text" class="w-full border p-2 rounded-lg text-xs outline-none">
+                </div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" onclick="chiudiModalModificaAnnuncio()" class="bg-gray-200 text-slate-700 px-4 py-2 rounded-xl text-xs font-semibold">Annulla</button>
+                    <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-md">Salva Modifiche</button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -396,7 +440,6 @@
         const badgeElem = document.getElementById('role-badge');
         badgeElem.textContent = ruolo;
 
-        // Gestione permessi e visualizzazione interfaccia
         if (ruolo === 'Visualizzatore') {
             document.getElementById('box-creazione').classList.add('hidden');
             document.getElementById('box-simulatore').classList.add('hidden');
@@ -419,16 +462,13 @@
             document.getElementById('th-azione-prodotti').classList.add('hidden');
             badgeElem.classList.add('bg-emerald-600');
         } else if (ruolo === 'Ufficio') {
-            document.getElementById('box-creazione').classList.add('hidden'); // Niente etichette magazzino
+            document.getElementById('box-creazione').classList.add('hidden');
             document.getElementById('box-simulatore').classList.add('hidden');
-            document.getElementById('btn-cat-modal').classList.add('hidden');     // Niente categorie
+            document.getElementById('btn-cat-modal').classList.add('hidden');
             document.getElementById('btn-admin-modal').classList.add('hidden');
             document.getElementById('btn-scontrini-su').classList.remove('hidden');
             document.getElementById('box-inventario').classList.remove('lg:col-span-2');
             document.getElementById('box-inventario').classList.add('lg:col-span-3');
-            document.getElementById('th-azione-prodotti').classList.add('hidden');
-            
-            // Mostriamo il box per creare gli annunci/prodotti dello shop
             document.getElementById('box-annunci-ufficio').classList.remove('hidden');
             badgeElem.classList.add('bg-purple-600');
         } else if (ruolo === 'Operatore') {
@@ -445,6 +485,7 @@
             document.getElementById('btn-admin-modal').classList.remove('hidden');
             document.getElementById('btn-cat-modal').classList.remove('hidden');
             document.getElementById('btn-scontrini-su').classList.remove('hidden');
+            document.getElementById('box-annunci-ufficio').classList.remove('hidden');
         }
 
         const socket = io();
@@ -514,6 +555,61 @@
             document.getElementById('modal-elimina').classList.remove('hidden');
         }
         function chiudiModalElimina() { prodottoDaEliminareId = null; document.getElementById('modal-elimina').classList.add('hidden'); }
+
+        function apriModalModificaAnnuncio(p) {
+            document.getElementById('edit-annuncio-id').value = p.id;
+            document.getElementById('edit-nome').value = p.nome;
+            document.getElementById('edit-cat').value = p.categoria || 'Componenti PC & Schede Madri';
+            document.getElementById('edit-prezzo').value = p.prezzo || 0;
+            document.getElementById('edit-quantita').value = p.quantita || 0;
+            document.getElementById('edit-img').value = p.immagine || '';
+            document.getElementById('edit-desc').value = p.descrizione || '';
+            document.getElementById('modal-modifica-annuncio').classList.remove('hidden');
+        }
+
+        function chiudiModalModificaAnnuncio() {
+            document.getElementById('modal-modifica-annuncio').classList.add('hidden');
+        }
+
+        async function eseguiModificaAnnuncio(e) {
+            e.preventDefault();
+            const id = document.getElementById('edit-annuncio-id').value;
+            const nome = document.getElementById('edit-nome').value;
+            const categoria = document.getElementById('edit-cat').value;
+            const prezzo = document.getElementById('edit-prezzo').value;
+            const quantita = document.getElementById('edit-quantita').value;
+            const immagine = document.getElementById('edit-img').value;
+            const descrizione = document.getElementById('edit-desc').value;
+
+            const res = await fetch(`/api/prodotti/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('token') },
+                body: JSON.stringify({ nome, categoria, prezzo, quantita, immagine, descrizione })
+            });
+
+            if (res.ok) {
+                mostraNotifica('Annuncio aggiornato con successo!');
+                chiudiModalModificaAnnuncio();
+                caricaProdotti();
+            } else {
+                const data = await res.json();
+                mostraNotifica(data.error || 'Errore modifica', 'error');
+            }
+        }
+
+        async function eliminaAnnuncioDiretto(id, nome) {
+            if (!confirm(`Sei sicuro di voler eliminare l'annuncio "${nome}"?`)) return;
+            const res = await fetch(`/api/prodotti/annuncio/${id}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+            });
+            if (res.ok) {
+                mostraNotifica('Annuncio eliminato!');
+                caricaProdotti();
+            } else {
+                mostraNotifica('Errore eliminazione annuncio', 'error');
+            }
+        }
 
         function mostraTabCat(tab) {
             if (tab === 'crea') {
@@ -598,6 +694,9 @@
             const res = await fetch('/api/prodotti', { headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') } });
             if (res.status === 401 || res.status === 403) logout();
             listaProdottiGlobal = await res.json();
+            
+            popolaSelectProdottiDatabase();
+
             const tbody = document.getElementById('tabella-prodotti');
             tbody.innerHTML = '';
             if (listaProdottiGlobal.length === 0) {
@@ -607,18 +706,28 @@
                     const objCat = listaCategorie.find(c => c.nome.toLowerCase() === (p.categoria || '').toLowerCase());
                     const coloreBg = objCat ? objCat.colore : '#64748b';
                     
-                    let btnEliminaHtml = '';
+                    let btnAzioneHtml = '';
                     if (ruolo === 'Admin') {
-                        btnEliminaHtml = `<td class="p-3 text-right"><button onclick="apriModalElimina(${p.id}, '${p.nome.replace(/'/g, "\\'")}')" class="bg-red-100 text-red-600 hover:bg-red-200 px-2.5 py-1 rounded-lg font-bold text-[11px]">🗑️ Elimina</button></td>`;
+                        btnAzioneHtml = `
+                            <td class="p-3 text-right space-x-1">
+                                <button onclick='apriModalModificaAnnuncio(${JSON.stringify(p)})' class="bg-blue-100 text-blue-600 hover:bg-blue-200 px-2.5 py-1 rounded-lg font-bold text-[11px]">✏️ Modifica</button>
+                                <button onclick="apriModalElimina(${p.id}, '${p.nome.replace(/'/g, "\\'")}')" class="bg-red-100 text-red-600 hover:bg-red-200 px-2.5 py-1 rounded-lg font-bold text-[11px]">🗑️ Elimina</button>
+                            </td>`;
+                    } else if (ruolo === 'Ufficio') {
+                        btnAzioneHtml = `
+                            <td class="p-3 text-right space-x-1">
+                                <button onclick='apriModalModificaAnnuncio(${JSON.stringify(p)})' class="bg-blue-100 text-blue-600 hover:bg-blue-200 px-2.5 py-1 rounded-lg font-bold text-[11px]">✏️ Modifica</button>
+                                <button onclick="eliminaAnnuncioDiretto(${p.id}, '${p.nome.replace(/'/g, "\\'")}')" class="bg-red-100 text-red-600 hover:bg-red-200 px-2.5 py-1 rounded-lg font-bold text-[11px]">🗑️ Elimina</button>
+                            </td>`;
                     }
 
                     tbody.innerHTML += `
                         <tr class="hover:bg-gray-50 border-b">
                             <td class="p-3 font-mono font-semibold text-gray-600">${p.codice_barre}</td>
-                            <td class="p-3 font-semibold text-slate-800">${p.nome}</td>
+                            <td class="p-3 font-semibold text-slate-800">${p.nome} ${p.prezzo ? `<span class="text-xs text-purple-600 font-bold">(${p.prezzo} €)</span>` : ''}</td>
                             <td class="p-3"><span class="text-white px-2 py-0.5 rounded text-[10px] font-bold shadow-sm" style="background-color: ${coloreBg}">${p.categoria || 'Generico'}</span></td>
                             <td class="p-3 text-center"><span class="bg-blue-100 text-blue-800 px-2.5 py-1 rounded-full font-bold text-xs">${p.quantita}</span></td>
-                            ${btnEliminaHtml}
+                            ${btnAzioneHtml}
                         </tr>
                     `;
                 });
@@ -627,6 +736,29 @@
             if (ruolo === 'Addetto scontrini') {
                 renderizzaGrigliaTouchScontrini();
             }
+        }
+
+        function popolaSelectProdottiDatabase() {
+            const selectDb = document.getElementById('shop-prod-db');
+            if(!selectDb) return;
+            selectDb.innerHTML = `<option value="">-- Seleziona Prodotto --</option>`;
+            listaProdottiGlobal.forEach(p => {
+                selectDb.innerHTML += `<option value="${p.id}" data-qty="${p.quantita}" data-prezzo="${p.prezzo || 0}" data-img="${p.immagine || ''}" data-desc="${p.descrizione || ''}">${p.nome} (Giacenza DB: ${p.quantita})</option>`;
+            });
+        }
+
+        function selezionaProdottoDaDb() {
+            const selectDb = document.getElementById('shop-prod-db');
+            const selectedOption = selectDb.options[selectDb.selectedIndex];
+            if (!selectedOption.value) return;
+
+            const maxQty = selectedOption.getAttribute('data-qty');
+            document.getElementById('max-qty-label').textContent = `Max DB: ${maxQty}`;
+            document.getElementById('shop-quantita').max = maxQty;
+            document.getElementById('shop-quantita').value = maxQty;
+            document.getElementById('shop-prezzo').value = selectedOption.getAttribute('data-prezzo');
+            document.getElementById('shop-img').value = selectedOption.getAttribute('data-img');
+            document.getElementById('shop-desc').value = selectedOption.getAttribute('data-desc');
         }
 
         function renderizzaGrigliaTouchScontrini() {
@@ -712,22 +844,36 @@
 
         async function creaAnnuncioShop(e) {
             e.preventDefault();
-            const nome = document.getElementById('shop-nome').value;
+            const prodotto_id = document.getElementById('shop-prod-db').value;
+            const selectDb = document.getElementById('shop-prod-db');
+            const selectedOption = selectDb.options[selectDb.selectedIndex];
+            
+            if (!prodotto_id) {
+                mostraNotifica('Seleziona un prodotto dal database!', 'error');
+                return;
+            }
+
+            const maxQty = parseInt(selectedOption.getAttribute('data-qty'));
+            const quantita = parseInt(document.getElementById('shop-quantita').value);
+
+            if (quantita > maxQty) {
+                mostraNotifica(`Quantità non valida! Disponibili a magazzino nel database: ${maxQty}`, 'error');
+                return;
+            }
+
             const categoria = document.getElementById('shop-cat').value;
             const prezzo = document.getElementById('shop-prezzo').value;
-            const quantita = document.getElementById('shop-quantita').value;
             const immagine = document.getElementById('shop-img').value;
             const descrizione = document.getElementById('shop-desc').value;
 
             const res = await fetch('/api/prodotti', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('token') },
-                body: JSON.stringify({ nome, categoria, prezzo, quantita, immagine, descrizione })
+                body: JSON.stringify({ prodotto_id, categoria, prezzo, quantita, immagine, descrizione })
             });
 
             if (res.ok) {
-                mostraNotifica('Annuncio pubblicato con successo nello shop!');
-                document.getElementById('shop-nome').value = '';
+                mostraNotifica('Annuncio pubblicato / aggiornato con successo!');
                 document.getElementById('shop-prezzo').value = '';
                 document.getElementById('shop-quantita').value = '';
                 document.getElementById('shop-img').value = '';
@@ -880,16 +1026,6 @@
         socket.on('inventario_aggiornato', caricaProdotti);
         socket.on('categorie_aggiornate', caricaCategorie);
         caricaCategorie();
-    </script>
-    <script>
-        if (!localStorage.getItem('token')) {
-            window.location.replace('/login.html');
-        }
-        window.addEventListener('pageshow', function(event) {
-            if (event.persisted || performance.getEntriesByType("navigation")[0].type === "back_forward") {
-                window.location.replace('/login.html');
-            }
-        });
     </script>
 </body>
 </html>
